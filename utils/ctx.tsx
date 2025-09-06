@@ -11,6 +11,7 @@ const AuthContext = createContext<{
     signInWithApple: () => Promise<{ error?: string }>;
     verifyOTP: (email: string, token: string) => Promise<{ error?: string }>;
     resendOTP: (email: string) => Promise<{ error?: string }>;
+    fakeSignIn: () => Promise<void>;
     signOut: () => Promise<void>;
     session?: Session | null;
     isLoading: boolean;
@@ -20,6 +21,7 @@ const AuthContext = createContext<{
     signInWithApple: async () => ({ error: "Not implemented" }),
     verifyOTP: async () => ({ error: "Not implemented" }),
     resendOTP: async () => ({ error: "Not implemented" }),
+    fakeSignIn: async () => { },
     signOut: async () => { },
     session: null,
     isLoading: false,
@@ -122,6 +124,38 @@ export function SessionProvider({ children }: PropsWithChildren) {
                 },
                 signOut: async () => {
                     await supabase.auth.signOut();
+                },
+                fakeSignIn: async () => {
+                    // Create a fake session that mimics Supabase session structure
+                    const fakeSession = {
+                        access_token: 'fake-access-token-' + Date.now(),
+                        refresh_token: 'fake-refresh-token-' + Date.now(),
+                        expires_in: 3600,
+                        expires_at: Math.floor(Date.now() / 1000) + 3600,
+                        token_type: 'bearer',
+                        user: {
+                            id: 'fake-user-id-' + Date.now(),
+                            aud: 'authenticated',
+                            role: 'authenticated',
+                            email: 'demo@example.com',
+                            email_confirmed_at: new Date().toISOString(),
+                            phone: '',
+                            last_sign_in_at: new Date().toISOString(),
+                            app_metadata: {
+                                provider: 'fake',
+                                providers: ['fake']
+                            },
+                            user_metadata: {
+                                name: 'Demo User'
+                            },
+                            identities: [],
+                            created_at: new Date().toISOString(),
+                            updated_at: new Date().toISOString()
+                        }
+                    };
+                    
+                    // Set the fake session directly
+                    setSession(JSON.stringify(fakeSession));
                 },
                 session: parsedSession,
                 isLoading,

@@ -31,8 +31,26 @@ export default function Auth() {
   const [showEmailForm, setShowEmailForm] = useState(false)
   const [showOTPVerification, setShowOTPVerification] = useState(false)
   const [pendingEmail, setPendingEmail] = useState('')
-  const { signIn, signUp, signInWithApple } = useSession()
+  const { signIn, signUp, signInWithApple, fakeSignIn } = useSession()
   const { isDarkColorScheme } = useColorScheme()
+
+  // Fake login function that bypasses all validation
+  async function fakeLogin() {
+    setLoading(true)
+    
+    try {
+      // Use the fake sign in from context
+      await fakeSignIn()
+      
+      // Simulate loading delay
+      await new Promise(resolve => setTimeout(resolve, 500))
+      
+    } catch (error) {
+      console.log('Fake login completed', error)
+    }
+    
+    setLoading(false)
+  }
 
   async function signInWithEmail() {
     setLoading(true)
@@ -140,6 +158,17 @@ export default function Auth() {
                   <Mail size={20} />
                   <Text className="ml-2">Continue with Email</Text>
                 </Button>
+
+                {/* Quick Login Button for Development */}
+                <Button
+                  onPress={fakeLogin}
+                  disabled={loading}
+                  className="h-12 bg-green-600 hover:bg-green-700"
+                >
+                  <Text className="text-white font-semibold">
+                    {loading ? 'Logging in...' : '🚀 Quick Login (Dev)'}
+                  </Text>
+                </Button>
               </View>
             ) : (
               // Email Form
@@ -213,6 +242,17 @@ export default function Auth() {
                   >
                     <Text className="text-muted-foreground">
                       ← Back to sign in options
+                    </Text>
+                  </Button>
+
+                  {/* Quick Login Button in Email Form */}
+                  <Button
+                    onPress={fakeLogin}
+                    disabled={loading}
+                    className="h-10 bg-green-600 hover:bg-green-700"
+                  >
+                    <Text className="text-white text-sm">
+                      {loading ? 'Logging in...' : '🚀 Quick Login (Skip Form)'}
                     </Text>
                   </Button>
                 </View>

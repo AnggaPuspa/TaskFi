@@ -1,6 +1,6 @@
 import React from 'react';
 import { useStorageState } from './useStorageState';
-import { supabase } from '@/utils/supabase';
+import { supabase } from '~/utils/supabase';
 
 const AuthContext = React.createContext<{
   signIn: (email:string,password:string) => void | any;
