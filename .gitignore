@@ -2,7 +2,10 @@
 
 # dependencies
 node_modules/
-.qoder 
+
+# Qoder files
+.qoder/
+.qoder
 
 # Expo
 .expo/
