@@ -10,6 +10,7 @@ import { Text } from '../../../components/ui/text';
 import { useThemeColor } from '../../../hooks/useThemeColor';
 import { Transaction } from '../../types';
 import { getCategoryById } from '../../mocks/categories';
+import { formatIDR } from '../../../utils/currency';
 
 interface TransactionCardProps {
   transaction: Transaction;
@@ -41,10 +42,8 @@ export function TransactionCard({
   const amountColor = isIncome ? incomeColor : expenseColor;
   
   const formatAmount = (amount: number): string => {
-    return `${isIncome ? '+' : '-'}${currency}${amount.toLocaleString('en-US', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })}`;
+    const formattedAmount = formatIDR(Math.abs(amount));
+    return `${isIncome ? '+' : '-'}${formattedAmount}`;
   };
 
   const formatDate = (dateString: string): string => {
@@ -54,11 +53,11 @@ export function TransactionCard({
     yesterday.setDate(today.getDate() - 1);
 
     if (date.toDateString() === today.toDateString()) {
-      return 'Today';
+      return 'Hari ini';
     } else if (date.toDateString() === yesterday.toDateString()) {
-      return 'Yesterday';
+      return 'Kemarin';
     } else {
-      return date.toLocaleDateString('en-US', {
+      return date.toLocaleDateString('id-ID', {
         month: 'short',
         day: 'numeric',
       });

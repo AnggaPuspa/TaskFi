@@ -48,8 +48,24 @@ export function SessionProvider({ children }: PropsWithChildren) {
 
         // Listen for auth changes
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
-            (_event, session) => {
+            async (event, session) => {
+                console.log('Auth state changed:', event, session?.user?.id);
                 setSession(session ? JSON.stringify(session) : null);
+                
+                // Create profile if user signs up
+                if (event === 'SIGNED_IN' && session?.user) {
+                    // Check if profile exists, if not create one
+                    const { data: profile } = await supabase
+                        .from('profiles')
+                        .select('id')
+                        .eq('id', session.user.id)
+                        .single();
+                    
+                    if (!profile) {
+                        // Profile will be auto-created by the trigger in schema.sql
+                        console.log('Profile will be auto-created by database trigger');
+                    }
+                }
             }
         );
 
@@ -62,21 +78,43 @@ export function SessionProvider({ children }: PropsWithChildren) {
         <AuthContext
             value={{
                 signIn: async (email: string, password: string) => {
-                    const { error } = await supabase.auth.signInWithPassword({
-                        email,
-                        password,
-                    });
-                    return { error: error?.message };
+                    try {
+                        const { error } = await supabase.auth.signInWithPassword({
+                            email,
+                            password,
+                        });
+                        return { error: error?.message };
+                    } catch (err: any) {
+                        console.error('Sign in error:', err);
+                        // Handle network errors specifically
+                        if (err.message?.toLowerCase().includes('network') || 
+                            err.message?.toLowerCase().includes('fetch') ||
+                            err.name === 'TypeError') {
+                            return { error: 'Network request failed. Please check your internet connection and Supabase configuration.' };
+                        }
+                        return { error: err.message || 'An unexpected error occurred during sign in.' };
+                    }
                 },
                 signUp: async (email: string, password: string) => {
-                    const { error } = await supabase.auth.signUp({
-                        email,
-                        password,
-                        options: {
-                            emailRedirectTo: undefined, // Disable email confirmation link
+                    try {
+                        const { error } = await supabase.auth.signUp({
+                            email,
+                            password,
+                            options: {
+                                emailRedirectTo: undefined, // Disable email confirmation for development
+                            }
+                        });
+                        return { error: error?.message };
+                    } catch (err: any) {
+                        console.error('Sign up error:', err);
+                        // Handle network errors specifically
+                        if (err.message?.toLowerCase().includes('network') || 
+                            err.message?.toLowerCase().includes('fetch') ||
+                            err.name === 'TypeError') {
+                            return { error: 'Network request failed. Please check your internet connection and Supabase configuration.' };
                         }
-                    });
-                    return { error: error?.message };
+                        return { error: err.message || 'An unexpected error occurred during sign up.' };
+                    }
                 },
                 signInWithApple: async () => {
                     if (Platform.OS !== 'ios') {

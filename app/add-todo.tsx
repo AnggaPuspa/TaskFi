@@ -15,10 +15,11 @@ import {
   LoadingOverlay 
 } from '~/src/shared/ui';
 import { PriorityBadge } from '~/src/shared/components';
+import { useTodos } from '~/src/hooks';
 
-import { getTodoById } from '~/src/mocks';
-import { Priority, TodoFormData } from '~/src/types';
+import { Priority, TodoFormData, Todo } from '~/src/types';
 import { useThemeColor } from '~/hooks/useThemeColor';
+import { useAuth } from '~/features/auth/AuthProvider';
 
 export default function AddTodoScreen() {
   const insets = useSafeAreaInsets();
@@ -27,6 +28,14 @@ export default function AddTodoScreen() {
   const destructiveColor = useThemeColor({}, 'destructive');
   const borderColor = useThemeColor({}, 'border');
   const mutedColor = useThemeColor({}, 'muted-foreground');
+  const { session } = useAuth();
+  const { 
+    rows: todos, 
+    loading: isLoading, 
+    add: addTodo, 
+    update: updateTodo, 
+    remove: deleteTodo 
+  } = useTodos({ enabled: !!session?.user?.id, userId: session?.user?.id });
 
   const todoId = params.id as string;
   const isEditing = !!todoId;
@@ -46,7 +55,7 @@ export default function AddTodoScreen() {
   // Load todo data for editing
   useEffect(() => {
     if (isEditing && todoId) {
-      const todo = getTodoById(todoId);
+      const todo = todos.find((t: any) => t.id === todoId);
       if (todo) {
         setFormData({
           title: todo.title,
@@ -57,37 +66,58 @@ export default function AddTodoScreen() {
         });
       }
     }
-  }, [isEditing, todoId]);
+  }, [isEditing, todoId, todos]);
 
   const validateForm = (): boolean => {
     const newErrors: Partial<TodoFormData> = {};
 
-    if (!formData.title.trim()) {
-      newErrors.title = 'Title is required';
-    }
+    if (!formData.title.trim()) newErrors.title = 'Judul tugas tidak boleh kosong' as any;
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSave = async () => {
-    if (!validateForm()) return;
+    if (!validateForm()) {
+      Alert.alert('Form Tidak Valid', 'Mohon lengkapi semua field yang diperlukan.');
+      return;
+    }
+
+    // Prevent double submission
+    if (loading) return;
 
     setLoading(true);
     
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // In a real app, this would save to API/database
-      console.log('Save todo:', {
-        ...formData,
-        due: formData.due?.toISOString(),
-      });
+      const todoData = {
+        title: formData.title.trim(),
+        description: formData.description?.trim() || null,
+        priority: formData.priority,
+        due: formData.due?.toISOString() || null,
+        tags: formData.tags || [],
+        done: false,
+      };
 
-      router.back();
-    } catch (error) {
-      Alert.alert('Error', 'Failed to save task. Please try again.');
+      console.log('💾 Saving todo:', { isEditing, todoData });
+
+      if (isEditing) {
+        await updateTodo(todoId, todoData);
+        Alert.alert('Berhasil!', 'Tugas berhasil diperbarui.');
+      } else {
+        await addTodo(todoData);
+        Alert.alert('Berhasil!', 'Tugas berhasil disimpan.');
+      }
+
+      // Navigate back after successful save
+      // Use replace to ensure the todos screen refreshes
+      if (router.canGoBack()) {
+        router.back();
+      } else {
+        router.replace('/(app)/(tabs)/todos');
+      }
+    } catch (error: any) {
+      console.error('❌ Error saving todo:', error);
+      Alert.alert('Error', `Gagal ${isEditing ? 'memperbarui' : 'menyimpan'} tugas: ${error.message || 'Silakan coba lagi.'}`);
     } finally {
       setLoading(false);
     }
@@ -97,25 +127,26 @@ export default function AddTodoScreen() {
     if (!isEditing) return;
 
     Alert.alert(
-      'Delete Task',
-      'Are you sure you want to delete this task? This action cannot be undone.',
+      'Hapus Tugas',
+      'Apakah Anda yakin ingin menghapus tugas ini? Tindakan ini tidak dapat dibatalkan.',
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: 'Batal', style: 'cancel' },
         {
-          text: 'Delete',
+          text: 'Hapus',
           style: 'destructive',
           onPress: async () => {
+            // Prevent double deletion
+            if (loading) return;
+            
             setLoading(true);
             try {
-              // Simulate API call
-              await new Promise(resolve => setTimeout(resolve, 500));
-              
-              // In a real app, this would delete from API/database
-              console.log('Delete todo:', todoId);
-              
+              console.log('🗑️ Deleting todo:', todoId);
+              await deleteTodo(todoId);
+              Alert.alert('Berhasil!', 'Tugas berhasil dihapus.');
               router.back();
-            } catch (error) {
-              Alert.alert('Error', 'Failed to delete task. Please try again.');
+            } catch (error: any) {
+              console.error('❌ Error deleting todo:', error);
+              Alert.alert('Error', `Gagal menghapus tugas: ${error.message || 'Silakan coba lagi.'}`);
             } finally {
               setLoading(false);
             }
@@ -148,9 +179,9 @@ export default function AddTodoScreen() {
   };
 
   const priorityOptions: { priority: Priority; icon: any; color: string; label: string }[] = [
-    { priority: 'low', icon: Flag, color: '#6B7280', label: 'Low' },
-    { priority: 'medium', icon: AlertCircle, color: '#F59E0B', label: 'Medium' },
-    { priority: 'high', icon: Zap, color: '#EF4444', label: 'High' },
+    { priority: 'low', icon: Flag, color: '#6B7280', label: 'Rendah' },
+    { priority: 'medium', icon: AlertCircle, color: '#F59E0B', label: 'Sedang' },
+    { priority: 'high', icon: Zap, color: '#EF4444', label: 'Tinggi' },
   ];
 
   return (
@@ -160,7 +191,7 @@ export default function AddTodoScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <Header 
-        title={isEditing ? 'Edit Task' : 'Add Task'}
+        title={isEditing ? 'Edit Tugas' : 'Tambah Tugas'}
         showBackButton
         onBackPress={() => router.back()}
         rightActions={
@@ -188,7 +219,7 @@ export default function AddTodoScreen() {
         <View className="p-4 gap-6">
           {/* Title */}
           <FormField 
-            label="Title" 
+            label="Judul Tugas" 
             required
             error={errors.title}
           >
@@ -200,26 +231,24 @@ export default function AddTodoScreen() {
                   setErrors(prev => ({ ...prev, title: undefined }));
                 }
               }}
-              placeholder="e.g., Buy groceries, Call insurance agent"
-              error={!!errors.title}
+              placeholder="Masukkan judul tugas"
+              returnKeyType="next"
             />
           </FormField>
 
           {/* Description */}
-          <FormField 
-            label="Description" 
-            description="Add any additional details (optional)"
-          >
+          <FormField label="Deskripsi">
             <Textarea
-              value={formData.description || ''}
+              value={formData.description}
               onChangeText={(description) => setFormData(prev => ({ ...prev, description }))}
-              placeholder="Add more details about this task..."
+              placeholder="Tambahkan detail lebih lanjut tentang tugas ini..."
               numberOfLines={3}
+              className="min-h-20"
             />
           </FormField>
 
           {/* Priority */}
-          <FormField label="Priority" required>
+          <FormField label="Prioritas">
             <View className="flex-row gap-3">
               {priorityOptions.map(({ priority, icon: Icon, color, label }) => {
                 const isSelected = formData.priority === priority;
@@ -227,151 +256,108 @@ export default function AddTodoScreen() {
                   <TouchableOpacity
                     key={priority}
                     onPress={() => handlePriorityChange(priority)}
-                    className="flex-1 p-3 rounded-lg border items-center"
+                    className={`flex-1 p-3 rounded-lg border ${
+                      isSelected ? 'border-primary bg-primary/10' : 'border-border bg-card'
+                    }`}
                     style={{
                       borderColor: isSelected ? color : borderColor,
-                      backgroundColor: isSelected ? color + '20' : 'transparent',
                     }}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Set priority to ${label}`}
-                    accessibilityState={{ selected: isSelected }}
                   >
-                    <Icon size={20} color={isSelected ? color : mutedColor} />
-                    <Text 
-                      className="text-xs font-medium mt-1"
-                      style={{ color: isSelected ? color : mutedColor }}
-                    >
-                      {label}
-                    </Text>
+                    <View className="items-center">
+                      <Icon size={20} color={color} />
+                      <Text className="text-sm mt-1" style={{ color: isSelected ? color : mutedColor }}>
+                        {label}
+                      </Text>
+                    </View>
                   </TouchableOpacity>
                 );
               })}
             </View>
-            <View className="mt-2">
-              <PriorityBadge priority={formData.priority} size="medium" />
-            </View>
           </FormField>
 
           {/* Due Date */}
-          <FormField 
-            label="Due Date" 
-            description="When should this task be completed? (optional)"
-          >
-            <View className="flex-row gap-3">
-              <View className="flex-1">
-                <CustomDateTimePicker
-                  value={formData.due || new Date()}
-                  onChange={(date) => setFormData(prev => ({ ...prev, due: date }))}
-                  mode="date"
-                  minimumDate={new Date()}
-                  placeholder="Select due date"
-                />
-              </View>
-              {formData.due && (
-                <Button
-                  variant="outline"
-                  onPress={() => setFormData(prev => ({ ...prev, due: undefined }))}
-                  className="px-3"
-                  accessibilityLabel="Clear due date"
-                >
-                  <X size={16} color={mutedColor} />
-                </Button>
-              )}
-            </View>
+          <FormField label="Tanggal Deadline">
+            <CustomDateTimePicker
+              value={formData.due || new Date()}
+              onChange={(date) => setFormData(prev => ({ ...prev, due: date || undefined }))}
+              placeholder="Pilih tanggal deadline"
+              mode="datetime"
+              minimumDate={new Date()}
+            />
           </FormField>
 
           {/* Tags */}
-          <FormField 
-            label="Tags" 
-            description="Add tags to organize your tasks (optional)"
-          >
-            {/* Existing Tags */}
-            {formData.tags && formData.tags.length > 0 && (
-              <View className="flex-row flex-wrap gap-2 mb-3">
-                {formData.tags.map((tag, index) => (
-                  <TouchableOpacity
-                    key={index}
-                    onPress={() => handleRemoveTag(tag)}
-                    className="flex-row items-center px-3 py-1 rounded-full bg-primary/20"
-                    accessibilityRole="button"
-                    accessibilityLabel={`Remove tag ${tag}`}
-                  >
-                    <Text className="text-sm text-primary mr-1">#{tag}</Text>
-                    <X size={12} color={useThemeColor({}, 'primary')} />
-                  </TouchableOpacity>
-                ))}
+          <FormField label="Tag">
+            <View className="gap-3">
+              {/* Add new tag */}
+              <View className="flex-row gap-2">
+                <Input
+                  value={newTag}
+                  onChangeText={setNewTag}
+                  placeholder="Tambahkan tag"
+                  className="flex-1"
+                  returnKeyType="done"
+                  onSubmitEditing={handleAddTag}
+                />
+                <Button
+                  onPress={handleAddTag}
+                  variant="outline"
+                  className="h-12 px-3"
+                  disabled={!newTag.trim()}
+                >
+                  <Plus size={16} />
+                </Button>
               </View>
-            )}
 
-            {/* Add New Tag */}
-            <View className="flex-row gap-2">
-              <Input
-                value={newTag}
-                onChangeText={setNewTag}
-                placeholder="Add a tag"
-                className="flex-1"
-                onSubmitEditing={handleAddTag}
-                returnKeyType="done"
-              />
-              <Button
-                onPress={handleAddTag}
-                disabled={!newTag.trim()}
-                className="px-4"
-                accessibilityLabel="Add tag"
-              >
-                <Plus size={16} color="white" />
-              </Button>
-            </View>
-
-            {/* Common Tags */}
-            <View className="mt-3">
-              <Text className="text-sm text-muted-foreground mb-2">Suggested tags:</Text>
-              <View className="flex-row flex-wrap gap-2">
-                {['work', 'personal', 'urgent', 'finance', 'health', 'shopping'].map((suggestedTag) => (
-                  <TouchableOpacity
-                    key={suggestedTag}
-                    onPress={() => {
-                      if (!formData.tags?.includes(suggestedTag)) {
-                        setFormData(prev => ({
-                          ...prev,
-                          tags: [...(prev.tags || []), suggestedTag],
-                        }));
-                      }
-                    }}
-                    className="px-3 py-1 rounded-full border border-border"
-                    disabled={formData.tags?.includes(suggestedTag)}
-                    style={{
-                      opacity: formData.tags?.includes(suggestedTag) ? 0.5 : 1,
-                    }}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Add ${suggestedTag} tag`}
-                  >
-                    <Text className="text-xs text-muted-foreground">#{suggestedTag}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+              {/* Display existing tags */}
+              {formData.tags && formData.tags.length > 0 && (
+                <View className="flex-row flex-wrap gap-2">
+                  {formData.tags.map((tag, index) => (
+                    <View
+                      key={index}
+                      className="flex-row items-center bg-secondary rounded-full px-3 py-1"
+                    >
+                      <Text className="text-sm mr-1">#{tag}</Text>
+                      <TouchableOpacity
+                        onPress={() => handleRemoveTag(tag)}
+                        className="p-1"
+                      >
+                        <X size={12} color={mutedColor} />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </View>
+              )}
             </View>
           </FormField>
         </View>
       </ScrollView>
 
-      {/* Save Button */}
-      <View className="p-4 border-t border-border bg-background">
+      {/* Footer with Save Button */}
+      <View 
+        className="p-4 border-t border-border bg-card"
+        style={{ paddingBottom: insets.bottom + 16 }}
+      >
         <Button
           onPress={handleSave}
-          disabled={loading}
+          disabled={loading || isLoading || !formData.title.trim()}
           className="h-12"
         >
           <View className="flex-row items-center">
             <Save size={20} color="white" />
-            <Text className="ml-2 text-white font-semibold">
-              {loading ? 'Saving...' : isEditing ? 'Update Task' : 'Save Task'}
+            <Text className="text-white font-medium ml-2">
+              {loading 
+                ? 'Menyimpan...' 
+                : isEditing 
+                  ? 'Perbarui Tugas' 
+                  : 'Simpan Tugas'
+              }
             </Text>
           </View>
         </Button>
       </View>
 
-      <LoadingOverlay visible={loading} message={loading ? 'Saving task...' : ''} />
+      {loading && <LoadingOverlay visible={loading} />}
     </KeyboardAvoidingView>
   );
 }

@@ -1,9 +1,9 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Animated } from 'react-native';
+import { View, Animated, Dimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import { Text } from '~/components/ui/text';
-import { Rocket } from '~/lib/icons/Rocket';
+import { CheckSquare, Zap, TrendingUp, Users, DollarSign } from 'lucide-react-native';
 
 interface SplashScreenProps {
     onFinish: () => void;
@@ -14,52 +14,79 @@ export function SplashScreen({ onFinish }: SplashScreenProps) {
     const scaleAnim = useRef(new Animated.Value(0.8)).current;
     const slideAnim = useRef(new Animated.Value(50)).current;
     const rotateAnim = useRef(new Animated.Value(0)).current;
+    const bounceAnim = useRef(new Animated.Value(0)).current;
+    const sparkleAnim = useRef(new Animated.Value(0)).current;
     const animationRef = useRef<Animated.CompositeAnimation | null>(null);
+
+    const { width, height } = Dimensions.get('window');
 
     useEffect(() => {
         // Small delay to ensure component is mounted properly
         const timer = setTimeout(() => {
-            // Start the animation sequence
+            // Start sparkle animation immediately
+            Animated.loop(
+                Animated.sequence([
+                    Animated.timing(sparkleAnim, {
+                        toValue: 1,
+                        duration: 1500,
+                        useNativeDriver: true,
+                    }),
+                    Animated.timing(sparkleAnim, {
+                        toValue: 0,
+                        duration: 1500,
+                        useNativeDriver: true,
+                    }),
+                ])
+            ).start();
+
+            // Main animation sequence
             const animationSequence = Animated.sequence([
                 // Initial fade in and scale
                 Animated.parallel([
                     Animated.timing(fadeAnim, {
                         toValue: 1,
-                        duration: 800,
+                        duration: 1000,
                         useNativeDriver: true,
                     }),
                     Animated.spring(scaleAnim, {
                         toValue: 1,
-                        tension: 50,
+                        tension: 40,
                         friction: 8,
                         useNativeDriver: true,
                     }),
                     Animated.timing(slideAnim, {
                         toValue: 0,
-                        duration: 800,
+                        duration: 1000,
                         useNativeDriver: true,
                     }),
                 ]),
+                // Bounce effect
+                Animated.spring(bounceAnim, {
+                    toValue: 1,
+                    tension: 100,
+                    friction: 6,
+                    useNativeDriver: true,
+                }),
                 // Pause
-                Animated.delay(1000),
+                Animated.delay(1200),
                 // Subtle rotation animation
                 Animated.timing(rotateAnim, {
                     toValue: 1,
-                    duration: 1000,
+                    duration: 800,
                     useNativeDriver: true,
                 }),
                 // Another pause
-                Animated.delay(500),
+                Animated.delay(600),
                 // Fade out
                 Animated.parallel([
                     Animated.timing(fadeAnim, {
                         toValue: 0,
-                        duration: 500,
+                        duration: 600,
                         useNativeDriver: true,
                     }),
                     Animated.timing(scaleAnim, {
-                        toValue: 1.1,
-                        duration: 500,
+                        toValue: 1.2,
+                        duration: 600,
                         useNativeDriver: true,
                     }),
                 ]),
@@ -71,7 +98,7 @@ export function SplashScreen({ onFinish }: SplashScreenProps) {
                     onFinish();
                 }
             });
-        }, 100);
+        }, 150);
 
         // Cleanup function
         return () => {
@@ -84,14 +111,19 @@ export function SplashScreen({ onFinish }: SplashScreenProps) {
 
     const rotateInterpolate = rotateAnim.interpolate({
         inputRange: [0, 1],
-        outputRange: ['0deg', '360deg'],
+        outputRange: ['0deg', '15deg'],
+    });
+
+    const bounceInterpolate = bounceAnim.interpolate({
+        inputRange: [0, 1],
+        outputRange: [0, -10],
     });
 
     return (
         <>
             <StatusBar style="light" />
             <LinearGradient
-                colors={['#667eea', '#764ba2']}
+                colors={['#0f172a', '#1e3a8a', '#3b82f6']}
                 style={{ flex: 1 }}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
@@ -104,89 +136,174 @@ export function SplashScreen({ onFinish }: SplashScreenProps) {
                         opacity: fadeAnim,
                     }}
                 >
-                    {/* Decorative background elements */}
-                    <View className="absolute top-1/4 left-8 w-32 h-32 rounded-full bg-white/5" />
-                    <View className="absolute bottom-1/3 right-12 w-24 h-24 rounded-full bg-white/5" />
-                    <View className="absolute top-1/2 right-8 w-16 h-16 rounded-full bg-white/10" />
-                    <View className="absolute bottom-1/4 left-12 w-20 h-20 rounded-full bg-white/5" />
+                    {/* Animated Floating Elements */}
+                    <Animated.View 
+                        style={{
+                            position: 'absolute',
+                            top: height * 0.15,
+                            left: width * 0.1,
+                            opacity: sparkleAnim,
+                        }}
+                        className="w-24 h-24 rounded-full bg-blue-400/10 border border-blue-300/20 justify-center items-center"
+                    >
+                        <DollarSign size={32} color="#60a5fa" strokeWidth={1.5} />
+                    </Animated.View>
+                    
+                    <Animated.View 
+                        style={{
+                            position: 'absolute',
+                            top: height * 0.25,
+                            right: width * 0.15,
+                            opacity: sparkleAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 0.3] }),
+                        }}
+                        className="w-20 h-20 rounded-full bg-yellow-400/10 border border-yellow-300/20 justify-center items-center"
+                    >
+                        <Zap size={28} color="#fbbf24" strokeWidth={1.5} />
+                    </Animated.View>
 
-                    {/* Main logo container */}
+                    <Animated.View 
+                        style={{
+                            position: 'absolute',
+                            bottom: height * 0.25,
+                            left: width * 0.2,
+                            opacity: sparkleAnim,
+                        }}
+                        className="w-16 h-16 rounded-full bg-green-400/10 border border-green-300/20 justify-center items-center"
+                    >
+                        <TrendingUp size={24} color="#34d399" strokeWidth={1.5} />
+                    </Animated.View>
+
+                    <Animated.View 
+                        style={{
+                            position: 'absolute',
+                            bottom: height * 0.15,
+                            right: width * 0.25,
+                            opacity: sparkleAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 0.4] }),
+                        }}
+                        className="w-18 h-18 rounded-full bg-purple-400/10 border border-purple-300/20 justify-center items-center"
+                    >
+                        <Users size={20} color="#a855f7" strokeWidth={1.5} />
+                    </Animated.View>
+
+                    {/* Main TaskFi Logo */}
                     <Animated.View
                         style={{
                             transform: [
                                 { scale: scaleAnim },
                                 { translateY: slideAnim },
                                 { rotate: rotateInterpolate },
+                                { translateY: bounceInterpolate },
                             ],
                         }}
-                        className="w-40 h-40 rounded-3xl mb-8 justify-center items-center relative overflow-hidden"
+                        className="mb-12 items-center"
                     >
-                        <View
-                            style={{ backgroundColor: 'rgba(255, 255, 255, 0.15)' }}
-                            className="w-full h-full absolute rounded-3xl border-2 border-white/20"
-                        />
-                        <View className="absolute inset-4 bg-white/5 rounded-2xl" />
-                        <Rocket size={80} className="text-white z-10" />
+                        {/* Logo Container */}
+                        <View className="relative">
+                            {/* Main Logo Background with Glow Effect */}
+                            <View className="w-44 h-44 rounded-3xl bg-white/10 backdrop-blur-lg border-2 border-white/20 justify-center items-center shadow-2xl">
+                                {/* Inner glow */}
+                                <View className="w-36 h-36 rounded-2xl bg-white/5 border border-white/10 justify-center items-center">
+                                    <CheckSquare size={88} color="white" strokeWidth={2.5} />
+                                </View>
+                            </View>
+                            
+                            {/* Accent Icons with Animations */}
+                            <Animated.View 
+                                style={{
+                                    transform: [{ rotate: rotateInterpolate }]
+                                }}
+                                className="absolute -top-3 -right-3 w-16 h-16 bg-gradient-to-br from-yellow-400 to-orange-400 rounded-full justify-center items-center shadow-lg border-2 border-white/30"
+                            >
+                                <Zap size={24} color="#1e3a8a" strokeWidth={3} />
+                            </Animated.View>
+                            
+                            <Animated.View 
+                                style={{
+                                    transform: [{ rotate: rotateInterpolate }]
+                                }}
+                                className="absolute -bottom-3 -left-3 w-14 h-14 bg-gradient-to-br from-green-400 to-emerald-400 rounded-full justify-center items-center shadow-lg border-2 border-white/30"
+                            >
+                                <TrendingUp size={20} color="#1e3a8a" strokeWidth={3} />
+                            </Animated.View>
 
-                        {/* Floating particles effect */}
-                        <Animated.View
-                            style={{
-                                opacity: fadeAnim,
-                                transform: [{
-                                    rotate: rotateInterpolate,
-                                }],
-                            }}
-                            className="absolute top-4 right-4 w-2 h-2 bg-white/40 rounded-full"
-                        />
-                        <View className="absolute bottom-6 left-6 w-1 h-1 bg-white/60 rounded-full" />
-                        <View className="absolute top-8 left-4 w-1.5 h-1.5 bg-white/50 rounded-full" />
+                            {/* Sparkle Effects */}
+                            <Animated.View
+                                style={{
+                                    opacity: sparkleAnim,
+                                    transform: [{ scale: sparkleAnim }]
+                                }}
+                                className="absolute top-8 right-2 w-3 h-3 bg-white rounded-full"
+                            />
+                            <Animated.View
+                                style={{
+                                    opacity: sparkleAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }),
+                                    transform: [{ scale: sparkleAnim }]
+                                }}
+                                className="absolute bottom-12 right-8 w-2 h-2 bg-yellow-300 rounded-full"
+                            />
+                        </View>
                     </Animated.View>
 
-                    {/* App name and tagline */}
+                    {/* TaskFi Branding */}
                     <Animated.View
                         style={{
                             transform: [{ translateY: slideAnim }],
                             opacity: fadeAnim,
                         }}
-                        className="items-center"
+                        className="items-center mb-8"
                     >
-                        <Text className="text-white text-4xl font-bold text-center mb-2 tracking-wide">
-                            RNR Base
+                        <Text className="text-white text-5xl font-bold text-center mb-3 tracking-wider">
+                            TaskFi
                         </Text>
-                        <Text className="text-white/80 text-lg text-center tracking-wider">
-                            React Native Reimagined
+                        <Text className="text-blue-200 text-xl text-center tracking-wide font-light">
+                            Tasks • Finance • Success
                         </Text>
+                        <View className="mt-4 bg-white/10 px-6 py-2 rounded-full border border-white/20">
+                            <Text className="text-white/90 text-sm font-medium tracking-wide">
+                                Organize • Track • Achieve
+                            </Text>
+                        </View>
                     </Animated.View>
 
-                    {/* Loading indicator */}
+                    {/* Loading Indicator */}
                     <Animated.View
                         style={{
                             opacity: fadeAnim,
                             transform: [{ translateY: slideAnim }],
                         }}
-                        className="absolute bottom-20 items-center"
+                        className="absolute bottom-24 items-center"
                     >
-                        <View className="flex-row space-x-2">
-                            {[0, 1, 2].map((index) => (
+                        <View className="flex-row space-x-3 mb-4">
+                            {[0, 1, 2, 3, 4].map((index) => (
                                 <Animated.View
                                     key={index}
                                     style={{
-                                        opacity: fadeAnim,
+                                        opacity: sparkleAnim.interpolate({
+                                            inputRange: [0, 1],
+                                            outputRange: [0.3, 1],
+                                        }),
                                         transform: [{
-                                            scale: fadeAnim.interpolate({
+                                            scale: sparkleAnim.interpolate({
                                                 inputRange: [0, 1],
-                                                outputRange: [0.8, 1],
+                                                outputRange: [0.7, 1],
                                             }),
                                         }],
                                     }}
-                                    className="w-2 h-2 bg-white/60 rounded-full"
+                                    className="w-3 h-3 bg-white rounded-full"
                                 />
                             ))}
                         </View>
-                        <Text className="text-white/60 text-sm mt-4 tracking-wide">
-                            Loading...
+                        <Text className="text-white/70 text-base tracking-wide font-medium">
+                            Initializing TaskFi...
                         </Text>
                     </Animated.View>
+
+                    {/* Version Badge */}
+                    <View className="absolute bottom-8 bg-white/5 px-4 py-2 rounded-full border border-white/10">
+                        <Text className="text-white/60 text-xs font-medium tracking-wide">
+                            Version 1.0.0 • Beta Release
+                        </Text>
+                    </View>
                 </Animated.View>
             </LinearGradient>
         </>

@@ -1,14 +1,13 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../utils/supabase'
 import { StyleSheet, View, Alert, Button } from 'react-native'
-import { Session } from '@supabase/supabase-js'
 import { Input } from './ui/input'
 import { Text } from './ui/text'
 import AvatarUploader from './AvatarUploader'
-import { useSession } from '../utils/ctx'
+import { useAuth } from '~/features/auth/AuthProvider'
 
 export default function Account() {
-  const { session, signOut } = useSession();
+  const { session, signOut } = useAuth();
   const [loading, setLoading] = useState(true)
   const [username, setUsername] = useState('')
   const [website, setWebsite] = useState('')

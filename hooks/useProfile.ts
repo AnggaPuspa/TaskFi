@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Alert } from 'react-native'
 import { supabase } from '../utils/supabase'
-import { useSession } from '../utils/ctx'
+import { useAuth } from '~/features/auth/AuthProvider'
 
 export interface ProfileData {
     username: string
@@ -12,7 +12,7 @@ export interface ProfileData {
 }
 
 export function useProfile() {
-    const { session } = useSession()
+    const { session } = useAuth()
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
     const [profile, setProfile] = useState<ProfileData>({

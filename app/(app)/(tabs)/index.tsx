@@ -15,13 +15,13 @@ import {
 import { Progress } from '~/components/ui/progress';
 import { Text } from '~/components/ui/text';
 import { Tooltip, TooltipContent, TooltipTrigger } from '~/components/ui/tooltip';
-import { useSession } from '~/utils/ctx';
+import { useAuth } from '~/features/auth/AuthProvider';
 
 const GITHUB_AVATAR_URI =
   'https://i.pinimg.com/originals/ef/a2/8d/efa28d18a04e7fa40ed49eeb0ab660db.jpg';
 
 export default function Screen() {
-  const { signOut } = useSession();
+  const { signOut } = useAuth();
   const [progress, setProgress] = React.useState(78);
 
   function updateProgressValue() {

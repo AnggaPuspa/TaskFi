@@ -1,17 +1,34 @@
-import React from 'react'
-import { View, ScrollView, Alert, Linking, Platform } from 'react-native'
+import React, { useState } from 'react'
+import { View, ScrollView, Alert, Linking, Platform, TouchableOpacity, Pressable } from 'react-native'
 import { Button } from './ui/button'
 import { Text } from './ui/text'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card'
 import { Separator } from './ui/separator'
-import { Info } from '~/lib/icons/Info'
-import { Palette } from '~/lib/icons/Palette'
-import { useSession } from '../utils/ctx'
+import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar'
+import { Mail } from '~/lib/icons/Mail'
+import { useAuth } from '~/features/auth/AuthProvider'
+import { useProfile } from '~/hooks/useProfile'
 import { ThemeToggle } from './ThemeToggle'
 import * as ImagePicker from 'expo-image-picker'
+import { 
+  User, 
+  Shield, 
+  FileText, 
+  HelpCircle, 
+  LogOut, 
+  Bell,
+  Lock,
+  Globe,
+  Smartphone,
+  ChevronRight,
+  Camera,
+  Moon,
+  Sun
+} from 'lucide-react-native'
 
 export default function Settings() {
-    const { session, signOut } = useSession()
+    const { session, signOut } = useAuth()
+    const { profile, loading, uploadAvatar: uploadAvatarHook } = useProfile()
+    const [uploading, setUploading] = useState(false)
 
     const handlePermissions = async () => {
         // Check current permissions status
@@ -103,254 +120,176 @@ export default function Settings() {
         )
     }
 
+    const handleUploadAvatar = async () => {
+        try {
+            setUploading(true)
+
+            // Request permissions
+            const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
+            if (status !== 'granted') {
+                Alert.alert('Permission Required', 'We need camera roll permissions to upload your avatar.')
+                return
+            }
+
+            // Pick image
+            const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                allowsEditing: true,
+                aspect: [1, 1],
+                quality: 0.8,
+            })
+
+            if (result.canceled) {
+                return
+            }
+
+            const image = result.assets[0]
+            if (!image.uri) {
+                throw new Error('No image selected')
+            }
+
+            // Use the hook's upload function
+            const uploadResult = await uploadAvatarHook(image.uri)
+            if (uploadResult.success) {
+                Alert.alert('Success', 'Avatar updated successfully!')
+            } else if (uploadResult.error) {
+                Alert.alert('Upload Error', uploadResult.error)
+            }
+
+        } catch (error) {
+            if (error instanceof Error) {
+                Alert.alert('Upload Error', error.message)
+            }
+        } finally {
+            setUploading(false)
+        }
+    }
+
+    const getAvatarFallback = () => {
+        const fullName = `${profile.name} ${profile.surname}`.trim()
+        if (fullName) {
+            return fullName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
+        }
+        if (profile.username) {
+            return profile.username.slice(0, 2).toUpperCase()
+        }
+        return session?.user?.email?.slice(0, 2).toUpperCase() || 'U'
+    }
+
     return (
-        <ScrollView className="flex-1 bg-background">
-            <View className="p-6 space-y-6">
-                {/* Header */}
-                <View className="space-y-3">
-                    <Text className="text-3xl font-bold text-foreground">Settings</Text>
-                    <Text className="text-base text-muted-foreground">
-                        Manage your app preferences and account settings
-                    </Text>
+        <ScrollView className="flex-1 bg-background px-4 pt-6 pb-2">
+            {/* Profile Header */}
+            <Pressable 
+                className="bg-card p-5 flex-row items-center rounded-lg mb-3"
+                onPress={handleUploadAvatar}
+            >
+                <View className="relative mr-4">
+                    <Avatar alt="Profile Picture" className="w-16 h-16">
+                        <AvatarImage source={{ uri: profile.avatar_url || undefined }} />
+                        <AvatarFallback>
+                            <Text className="text-xl font-semibold text-muted-foreground">
+                                {getAvatarFallback()}
+                            </Text>
+                        </AvatarFallback>
+                    </Avatar>
+                    <View className="absolute -bottom-1 -right-1 bg-primary rounded-full p-1">
+                        <Camera size={12} className="text-primary-foreground" />
+                    </View>
                 </View>
-
-                {/* User Info Card */}
-                <Card className="bg-gradient-to-r from-primary/5 to-primary/10">
-                    <CardContent className="p-4">
-                        <View className="flex-row items-center space-x-4">
-                            <View className="w-12 h-12 bg-primary rounded-full items-center justify-center">
-                                <Text className="text-white font-bold text-lg">
-                                    {session?.user?.email?.charAt(0).toUpperCase() || 'U'}
-                                </Text>
-                            </View>
-                            <View className="flex-1">
-                                <Text className="font-semibold text-base text-foreground">
-                                    Welcome back!
-                                </Text>
-                                <Text className="text-sm text-muted-foreground">
-                                    {session?.user?.email}
-                                </Text>
-                            </View>
-                        </View>
-                    </CardContent>
-                </Card>
-
-                {/* Appearance Section */}
-                <Card>
-                    <CardHeader className="pb-3">
-                        <CardTitle className="flex-row items-center space-x-2">
-                            <Palette size={20} className="text-primary" />
-                            <Text>Appearance</Text>
-                        </CardTitle>
-                        <CardDescription>
-                            Customize how the app looks and feels
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        <View className="flex-row items-center justify-between p-4 bg-muted/30 rounded-lg">
-                            <View className="flex-1">
-                                <Text className="font-semibold text-base">Theme</Text>
-                                <Text className="text-sm text-muted-foreground">
-                                    Switch between light and dark mode
-                                </Text>
-                            </View>
-                            <ThemeToggle />
-                        </View>
-                    </CardContent>
-                </Card>
-
-                {/* Legal & Privacy Section */}
-                <Card>
-                    <CardHeader className="pb-3">
-                        <CardTitle className="flex-row items-center space-x-2">
-                            <Info size={20} className="text-primary" />
-                            <Text>Legal & Privacy</Text>
-                        </CardTitle>
-                        <CardDescription>
-                            Important information about your rights and our policies
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-1">
-                        <Button
-                            onPress={handlePermissions}
-                            variant="ghost"
-                            className="h-16 justify-start p-4 rounded-lg hover:bg-muted/50"
-                        >
-                            <View className="flex-row items-center space-x-4 flex-1">
-                                <View className="w-10 h-10 bg-blue-500/10 rounded-full items-center justify-center">
-                                    <Text className="text-lg">🔐</Text>
-                                </View>
-                                <View className="flex-1">
-                                    <Text className="font-semibold text-base text-left">App Permissions</Text>
-                                    <Text className="text-sm text-muted-foreground text-left">
-                                        View and manage app permissions
-                                    </Text>
-                                </View>
-                                <Text className="text-muted-foreground">›</Text>
-                            </View>
-                        </Button>
-
-                        <Button
-                            onPress={handleTermsOfUse}
-                            variant="ghost"
-                            className="h-16 justify-start p-4 rounded-lg hover:bg-muted/50"
-                        >
-                            <View className="flex-row items-center space-x-4 flex-1">
-                                <View className="w-10 h-10 bg-green-500/10 rounded-full items-center justify-center">
-                                    <Text className="text-lg">📄</Text>
-                                </View>
-                                <View className="flex-1">
-                                    <Text className="font-semibold text-base text-left">Terms of Use</Text>
-                                    <Text className="text-sm text-muted-foreground text-left">
-                                        Read our terms and conditions
-                                    </Text>
-                                </View>
-                                <Text className="text-muted-foreground">›</Text>
-                            </View>
-                        </Button>
-
-                        <Button
-                            onPress={handlePrivacyPolicy}
-                            variant="ghost"
-                            className="h-16 justify-start p-4 rounded-lg hover:bg-muted/50"
-                        >
-                            <View className="flex-row items-center space-x-4 flex-1">
-                                <View className="w-10 h-10 bg-purple-500/10 rounded-full items-center justify-center">
-                                    <Text className="text-lg">🛡️</Text>
-                                </View>
-                                <View className="flex-1">
-                                    <Text className="font-semibold text-base text-left">Privacy Policy</Text>
-                                    <Text className="text-sm text-muted-foreground text-left">
-                                        Learn how we protect your data
-                                    </Text>
-                                </View>
-                                <Text className="text-muted-foreground">›</Text>
-                            </View>
-                        </Button>
-                    </CardContent>
-                </Card>
-
-                {/* Support & Help Section */}
-                <Card>
-                    <CardHeader className="pb-3">
-                        <CardTitle>Support & Help</CardTitle>
-                        <CardDescription>
-                            Get help and learn more about the app
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-1">
-                        <Button
-                            onPress={handleSupport}
-                            variant="ghost"
-                            className="h-16 justify-start p-4 rounded-lg hover:bg-muted/50"
-                        >
-                            <View className="flex-row items-center space-x-4 flex-1">
-                                <View className="w-10 h-10 bg-orange-500/10 rounded-full items-center justify-center">
-                                    <Text className="text-lg">💬</Text>
-                                </View>
-                                <View className="flex-1">
-                                    <Text className="font-semibold text-base text-left">Contact Support</Text>
-                                    <Text className="text-sm text-muted-foreground text-left">
-                                        Get help from our team
-                                    </Text>
-                                </View>
-                                <Text className="text-muted-foreground">›</Text>
-                            </View>
-                        </Button>
-
-                        <Button
-                            onPress={handleAbout}
-                            variant="ghost"
-                            className="h-16 justify-start p-4 rounded-lg hover:bg-muted/50"
-                        >
-                            <View className="flex-row items-center space-x-4 flex-1">
-                                <View className="w-10 h-10 bg-cyan-500/10 rounded-full items-center justify-center">
-                                    <Text className="text-lg">ℹ️</Text>
-                                </View>
-                                <View className="flex-1">
-                                    <Text className="font-semibold text-base text-left">About</Text>
-                                    <Text className="text-sm text-muted-foreground text-left">
-                                        Learn about this app
-                                    </Text>
-                                </View>
-                                <Text className="text-muted-foreground">›</Text>
-                            </View>
-                        </Button>
-                    </CardContent>
-                </Card>
-
-                {/* App Information */}
-                <Card>
-                    <CardHeader className="pb-3">
-                        <CardTitle>App Information</CardTitle>
-                        <CardDescription>
-                            Version and build details
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        <View className="flex-row justify-between items-center p-3 bg-muted/20 rounded-lg">
-                            <View className="flex-row items-center space-x-3">
-                                <View className="w-8 h-8 bg-primary/10 rounded-full items-center justify-center">
-                                    <Text className="text-primary font-bold">v</Text>
-                                </View>
-                                <Text className="font-medium text-muted-foreground">Version</Text>
-                            </View>
-                            <Text className="font-semibold">1.0.0</Text>
-                        </View>
-
-                        <View className="flex-row justify-between items-center p-3 bg-muted/20 rounded-lg">
-                            <View className="flex-row items-center space-x-3">
-                                <View className="w-8 h-8 bg-primary/10 rounded-full items-center justify-center">
-                                    <Text className="text-primary font-bold">#</Text>
-                                </View>
-                                <Text className="font-medium text-muted-foreground">Build</Text>
-                            </View>
-                            <Text className="font-semibold">2025.08.02</Text>
-                        </View>
-
-                        <View className="flex-row justify-between items-center p-3 bg-muted/20 rounded-lg">
-                            <View className="flex-row items-center space-x-3">
-                                <View className="w-8 h-8 bg-primary/10 rounded-full items-center justify-center">
-                                    <Text className="text-primary font-bold">📱</Text>
-                                </View>
-                                <Text className="font-medium text-muted-foreground">Platform</Text>
-                            </View>
-                            <Text className="font-semibold capitalize">{Platform.OS}</Text>
-                        </View>
-                    </CardContent>
-                </Card>
-
-                {/* Account Actions */}
-                <Card className="border-destructive/20">
-                    <CardHeader className="pb-3">
-                        <CardTitle className="text-destructive">Account Actions</CardTitle>
-                        <CardDescription>
-                            Manage your account and session
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <Button
-                            onPress={handleSignOut}
-                            variant="destructive"
-                            className="h-12 w-full"
-                        >
-                            <Text className="font-semibold">Sign Out</Text>
-                        </Button>
-                    </CardContent>
-                </Card>
-
-                {/* Footer */}
-                <View className="pt-6 pb-8">
-                    <View className="items-center space-y-2">
-                        <Text className="text-center text-sm text-muted-foreground">
-                            Made with ❤️ using React Native & Expo
-                        </Text>
-                        <Text className="text-center text-xs text-muted-foreground">
-                            © 2025 RNR Base. All rights reserved.
+                <View className="flex-1 pr-3">
+                    <Text className="text-lg font-semibold text-foreground">
+                        {`${profile.name} ${profile.surname}`.trim() || profile.username || 'User'}
+                    </Text>
+                    <View className="flex-row items-center mt-1">
+                        <Mail size={14} className="text-muted-foreground mr-2" />
+                        <Text className="text-sm text-muted-foreground">
+                            {session?.user?.email}
                         </Text>
                     </View>
                 </View>
+                <View className="pl-2">
+                    <ChevronRight size={20} className="text-muted-foreground" />
+                </View>
+            </Pressable>
+
+            {/* Settings List */}
+            <View className="bg-card rounded-lg mb-3">
+                {/* Account Section */}
+                <View className="px-4 py-4">
+                    <Text className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+                        Account
+                    </Text>
+                </View>
+
+                <TouchableOpacity 
+                    className="flex-row items-center px-4 py-5 border-b border-border"
+                    onPress={handlePermissions}
+                >
+                    <View className="flex-row items-center flex-1">
+                        <View className="w-10 h-10 bg-muted rounded-full items-center justify-center mr-4">
+                            <Lock size={20} className="text-muted-foreground" />
+                        </View>
+                        <View className="flex-1 pr-3">
+                            <Text className="text-base font-medium text-foreground">Permissions</Text>
+                            <Text className="text-sm text-muted-foreground mt-0.5">Manage app permissions</Text>
+                        </View>
+                    </View>
+                    <View className="pl-2">
+                        <ChevronRight size={20} className="text-muted-foreground" />
+                    </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                    className="flex-row items-center px-4 py-5 border-b border-border"
+                    onPress={() => {}}
+                >
+                    <View className="flex-row items-center flex-1">
+                        <View className="w-10 h-10 bg-muted rounded-full items-center justify-center mr-4">
+                            <Bell size={20} className="text-muted-foreground" />
+                        </View>
+                        <View className="flex-1 pr-3">
+                            <Text className="text-base font-medium text-foreground">Notifications</Text>
+                            <Text className="text-sm text-muted-foreground mt-0.5">Notification preferences</Text>
+                        </View>
+                    </View>
+                    <View className="pl-2">
+                        <ChevronRight size={20} className="text-muted-foreground" />
+                    </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                    className="flex-row items-center px-4 py-5"
+                    onPress={() => {}}
+                >
+                    <View className="flex-row items-center flex-1">
+                        <View className="w-10 h-10 bg-muted rounded-full items-center justify-center mr-4">
+                            <Globe size={20} className="text-muted-foreground" />
+                        </View>
+                        <View className="flex-1 pr-3">
+                            <Text className="text-base font-medium text-foreground">Language</Text>
+                            <Text className="text-sm text-muted-foreground mt-0.5">App language settings</Text>
+                        </View>
+                    </View>
+                    <View className="pl-2">
+                        <ChevronRight size={20} className="text-muted-foreground" />
+                    </View>
+                </TouchableOpacity>
             </View>
+
+     
+            {/* Sign Out */}
+            <View className="bg-card rounded-lg p-5 mb-6">
+                <TouchableOpacity 
+                    className="flex-row items-center justify-center py-4 px-6 bg-destructive rounded-lg"
+                    onPress={handleSignOut}
+                >
+                    <LogOut size={20} className="text-destructive-foreground mr-3" />
+                    <Text className="text-base font-medium text-destructive-foreground">Sign Out</Text>
+                </TouchableOpacity>
+            </View>
+
+            {/* Bottom spacing */}
+            <View className="h-6" />
         </ScrollView>
     )
 }

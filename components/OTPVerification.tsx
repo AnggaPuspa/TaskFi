@@ -1,9 +1,10 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, TextInput, Alert } from 'react-native';
 import { Button } from './ui/button';
 import { Text } from './ui/text';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
-import { useSession } from '../utils/ctx';
+import { supabase } from '~/utils/supabase';
+import { Shield, Mail, CheckCircle } from 'lucide-react-native';
 
 interface OTPVerificationProps {
     email: string;
@@ -18,7 +19,6 @@ export default function OTPVerification({ email, onVerificationSuccess, onBack }
     const [timer, setTimer] = useState(60);
     const [canResend, setCanResend] = useState(false);
     const inputRefs = useRef<(TextInput | null)[]>([]);
-    const { verifyOTP: verifyOTPFromContext, resendOTP: resendOTPFromContext } = useSession();
 
     useEffect(() => {
         if (timer > 0) {
@@ -59,12 +59,16 @@ export default function OTPVerification({ email, onVerificationSuccess, onBack }
 
         setLoading(true);
         try {
-            const { error } = await verifyOTPFromContext(email, otpCode);
+            const { error } = await supabase.auth.verifyOtp({
+                email,
+                token: otpCode,
+                type: 'signup'
+            });
 
             if (error) {
-                Alert.alert('Verification Failed', error);
+                Alert.alert('Verification Failed', error.message);
             } else {
-                Alert.alert('Success', 'Your account has been verified!');
+                Alert.alert('Success', 'Your TaskFi account has been verified!');
                 onVerificationSuccess();
             }
         } catch (error: any) {
@@ -77,10 +81,13 @@ export default function OTPVerification({ email, onVerificationSuccess, onBack }
     const handleResendOTP = async () => {
         setResendLoading(true);
         try {
-            const { error } = await resendOTPFromContext(email);
+            const { error } = await supabase.auth.resend({
+                type: 'signup',
+                email
+            });
 
             if (error) {
-                Alert.alert('Resend Failed', error);
+                Alert.alert('Resend Failed', error.message);
             } else {
                 Alert.alert('Success', 'A new verification code has been sent to your email');
                 setTimer(60);
@@ -95,54 +102,74 @@ export default function OTPVerification({ email, onVerificationSuccess, onBack }
     };
 
     return (
-        <Card className="w-full">
-            <CardHeader className="space-y-1">
-                <CardTitle className="text-2xl text-center">
-                    Verify Your Email
+        <Card className="bg-white/5 border-white/10 backdrop-blur-lg shadow-2xl">
+            <CardHeader className="space-y-3">
+                <View className="items-center mb-4">
+                    <View className="w-16 h-16 rounded-2xl bg-blue-500/20 border border-blue-400/30 justify-center items-center mb-4">
+                        <Shield size={32} color="#3b82f6" strokeWidth={2} />
+                    </View>
+                </View>
+                <CardTitle className="text-2xl text-center text-white font-bold">
+                    Verify Your TaskFi Email
                 </CardTitle>
-                <CardDescription className="text-center">
-                    We've sent a 6-digit verification code to{'\n'}
-                    <Text className="font-medium text-foreground">{email}</Text>
+                <CardDescription className="text-center text-blue-200">
+                    We've sent a 6-digit verification code to{' '}
+                    <Text className="font-semibold text-white">{email}</Text>
+                    {' '}Please enter it below to complete your TaskFi registration.
                 </CardDescription>
             </CardHeader>
 
-            <CardContent className="space-y-6">
+            <CardContent className="space-y-8">
                 {/* OTP Input Fields */}
-                <View className="flex-row justify-center space-x-3">
-                    {otp.map((digit, index) => (
-                        <TextInput
-                            key={index}
-                            ref={(ref) => {
-                                inputRefs.current[index] = ref;
-                            }}
-                            className="w-12 h-12 text-center text-xl font-semibold border border-border rounded-lg bg-background text-foreground"
-                            value={digit}
-                            onChangeText={(value) => handleOtpChange(value, index)}
-                            onKeyPress={({ nativeEvent }) => handleKeyPress(nativeEvent.key, index)}
-                            keyboardType="numeric"
-                            maxLength={1}
-                            selectTextOnFocus
-                            autoFocus={index === 0}
-                        />
-                    ))}
+                <View className="items-center">
+                    <View className="flex-row items-center space-x-2 mb-4">
+                        <Mail size={16} color="white" />
+                        <Text className="text-white/80 text-sm font-medium">Enter Verification Code</Text>
+                    </View>
+                    <View className="flex-row justify-center space-x-4">
+                        {otp.map((digit, index) => (
+                            <TextInput
+                                key={index}
+                                ref={(ref) => {
+                                    inputRefs.current[index] = ref;
+                                }}
+                                className="w-14 h-14 text-center text-xl font-bold border-2 border-white/20 rounded-xl bg-white/5 text-white"
+                                style={{
+                                    borderColor: digit ? '#3b82f6' : 'rgba(255, 255, 255, 0.2)',
+                                    backgroundColor: digit ? 'rgba(59, 130, 246, 0.1)' : 'rgba(255, 255, 255, 0.05)',
+                                }}
+                                value={digit}
+                                onChangeText={(value) => handleOtpChange(value, index)}
+                                onKeyPress={({ nativeEvent }) => handleKeyPress(nativeEvent.key, index)}
+                                keyboardType="numeric"
+                                maxLength={1}
+                                selectTextOnFocus
+                                autoFocus={index === 0}
+                                placeholderTextColor="rgba(255, 255, 255, 0.3)"
+                            />
+                        ))}
+                    </View>
                 </View>
 
                 {/* Verify Button */}
                 <Button
                     onPress={handleVerifyOTP}
                     disabled={loading || otp.join('').length !== 6}
-                    className="h-12"
+                    className="h-14 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 shadow-lg"
                     size="lg"
                 >
-                    <Text className={loading ? "opacity-70" : ""}>
-                        {loading ? 'Verifying...' : 'Verify Code'}
-                    </Text>
+                    <View className="flex-row items-center justify-center space-x-2">
+                        <CheckCircle size={20} color="white" />
+                        <Text className={`text-white font-bold text-base ${loading ? "opacity-70" : ""}`}>
+                            {loading ? 'Verifying your code...' : 'Complete TaskFi Setup'}
+                        </Text>
+                    </View>
                 </Button>
 
                 {/* Resend Code */}
-                <View className="items-center space-y-2">
-                    <Text className="text-sm text-muted-foreground">
-                        Didn't receive the code?
+                <View className="items-center space-y-3">
+                    <Text className="text-sm text-white/70">
+                        Didn't receive the verification code?
                     </Text>
 
                     {canResend ? (
@@ -150,16 +177,18 @@ export default function OTPVerification({ email, onVerificationSuccess, onBack }
                             variant="ghost"
                             onPress={handleResendOTP}
                             disabled={resendLoading}
-                            className="h-10"
+                            className="h-12 bg-white/5 border border-white/20"
                         >
-                            <Text className="text-primary">
-                                {resendLoading ? 'Sending...' : 'Resend Code'}
+                            <Text className="text-blue-400 font-medium">
+                                {resendLoading ? 'Sending new code...' : 'Resend Verification Code'}
                             </Text>
                         </Button>
                     ) : (
-                        <Text className="text-sm text-muted-foreground">
-                            Resend available in {timer}s
-                        </Text>
+                        <View className="bg-white/5 px-4 py-2 rounded-full border border-white/10">
+                            <Text className="text-sm text-white/70">
+                                Resend available in {timer}s
+                            </Text>
+                        </View>
                     )}
                 </View>
 
@@ -168,10 +197,10 @@ export default function OTPVerification({ email, onVerificationSuccess, onBack }
                     variant="outline"
                     onPress={onBack}
                     disabled={loading}
-                    className="h-12 mt-4"
+                    className="h-12 border-white/20 bg-white/5 hover:bg-white/10"
                 >
-                    <Text>
-                        ← Back to Sign Up
+                    <Text className="text-white font-medium">
+                        ← Back to Registration
                     </Text>
                 </Button>
             </CardContent>

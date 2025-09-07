@@ -84,7 +84,7 @@ export function useThrottle(callback: Function, delay: number) {
             callback(...args);
             lastRan.current = Date.now();
           }
-        }, delay - (Date.now() - lastRan.current));
+        }, delay - (Date.now() - lastRan.current)) as any;
       }
     },
     [callback, delay]
@@ -113,9 +113,7 @@ export function createOptimizedRenderItem<T>(
 ): ListRenderItem<T> {
   const MemoizedItem = React.memo(ItemComponent, arePropsEqual || shallowEqual);
   
-  return ({ item, index }) => (
-    <MemoizedItem item={item} index={index} />
-  );
+  return ({ item, index }) => React.createElement(MemoizedItem, { item, index });
 }
 
 // Performance monitoring hook
@@ -152,11 +150,12 @@ export const imageOptimizations = {
 // Memory usage tracker (development only)
 export function useMemoryTracker(componentName: string) {
   React.useEffect(() => {
-    if (__DEV__ && typeof performance !== 'undefined' && performance.memory) {
+    if (__DEV__ && typeof performance !== 'undefined' && (performance as any).memory) {
+      const memory = (performance as any).memory;
       console.log(`${componentName} memory usage:`, {
-        used: Math.round(performance.memory.usedJSHeapSize / 1024 / 1024),
-        total: Math.round(performance.memory.totalJSHeapSize / 1024 / 1024),
-        limit: Math.round(performance.memory.jsHeapSizeLimit / 1024 / 1024),
+        used: Math.round(memory.usedJSHeapSize / 1024 / 1024),
+        total: Math.round(memory.totalJSHeapSize / 1024 / 1024),
+        limit: Math.round(memory.jsHeapSizeLimit / 1024 / 1024),
       });
     }
   });

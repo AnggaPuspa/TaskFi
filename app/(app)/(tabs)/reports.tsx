@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { View, ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { 
@@ -10,6 +10,8 @@ import {
   ChevronDown 
 } from 'lucide-react-native';
 
+import { formatIDR } from '~/utils/currency';
+
 import { Text } from '~/components/ui/text';
 import { Header } from '~/src/shared/ui';
 import { 
@@ -20,12 +22,30 @@ import {
   BudgetProgress 
 } from '~/src/shared/components';
 
-import { mockTransactions, mockCategories, getCategoriesByType } from '~/src/mocks';
+import { mockCategories, getCategoriesByType } from '~/src/mocks';
+import { useTransactions } from '~/src/hooks';
+import { useAuth } from '~/features/auth/AuthProvider';
 import { useThemeColor } from '~/hooks/useThemeColor';
 
 export default function ReportsScreen() {
+  // ✅ ALL HOOKS MUST BE CALLED AT THE TOP LEVEL - BEFORE ANY CONDITIONAL RETURNS
   const insets = useSafeAreaInsets();
   const backgroundColor = useThemeColor({}, 'background');
+  const mutedForegroundColor = useThemeColor({}, 'muted-foreground');
+  const successColor = useThemeColor({}, 'success');
+  const destructiveColor = useThemeColor({}, 'destructive');
+  const warningColor = useThemeColor({}, 'warning');
+  const primaryColor = useThemeColor({}, 'primary');
+  
+  // ✅ Auth state
+  const { session, status } = useAuth();
+  const userId = session?.user?.id ?? null;
+  
+  const { rows: transactions, loading: isLoading, error, refetch } = useTransactions({ 
+    enabled: !!userId, 
+    userId: userId || undefined 
+  });
+  
   const [refreshing, setRefreshing] = useState(false);
   const [selectedPeriod, setSelectedPeriod] = useState('This Month');
 
@@ -33,6 +53,15 @@ export default function ReportsScreen() {
 
   // Calculate financial data for the selected period
   const financialData = useMemo(() => {
+    console.log('📊 Reports Debug:', {
+      transactionsCount: transactions.length,
+      selectedPeriod,
+      userId,
+      isLoading,
+      error,
+      sampleTransactions: transactions.slice(0, 3)
+    });
+
     const now = new Date();
     let startDate: Date;
     
@@ -50,17 +79,38 @@ export default function ReportsScreen() {
         startDate = new Date(now.getFullYear(), now.getMonth(), 1);
     }
 
-    const periodTransactions = mockTransactions.filter(t => 
-      new Date(t.date) >= startDate
-    );
+    console.log('📅 Date filter:', {
+      startDate: startDate.toISOString(),
+      now: now.toISOString(),
+      selectedPeriod
+    });
+
+    const periodTransactions = transactions.filter((t: any) => {
+      const transactionDate = new Date(t.date);
+      const isInPeriod = transactionDate >= startDate;
+      console.log('🔍 Transaction filter:', {
+        title: t.title,
+        date: t.date,
+        transactionDate: transactionDate.toISOString(),
+        startDate: startDate.toISOString(),
+        isInPeriod
+      });
+      return isInPeriod;
+    });
+
+    console.log('✅ Filtered transactions:', {
+      total: periodTransactions.length,
+      income: periodTransactions.filter((t: any) => t.type === 'income').length,
+      expense: periodTransactions.filter((t: any) => t.type === 'expense').length
+    });
 
     const income = periodTransactions
-      .filter(t => t.type === 'income')
-      .reduce((sum, t) => sum + t.amount, 0);
+      .filter((t: any) => t.type === 'income')
+      .reduce((sum: number, t: any) => sum + (typeof t.amount === 'number' ? t.amount : parseFloat(t.amount) || 0), 0);
       
     const expenses = periodTransactions
-      .filter(t => t.type === 'expense')
-      .reduce((sum, t) => sum + t.amount, 0);
+      .filter((t: any) => t.type === 'expense')
+      .reduce((sum: number, t: any) => sum + (typeof t.amount === 'number' ? t.amount : parseFloat(t.amount) || 0), 0);
 
     const netIncome = income - expenses;
     const savingsRate = income > 0 ? ((netIncome / income) * 100) : 0;
@@ -72,16 +122,16 @@ export default function ReportsScreen() {
       savingsRate,
       transactions: periodTransactions,
     };
-  }, [selectedPeriod]);
+  }, [selectedPeriod, transactions]);
 
   // Category breakdown for pie chart
   const categoryBreakdown = useMemo(() => {
     const categoryTotals: { [key: string]: number } = {};
     
     financialData.transactions
-      .filter(t => t.type === 'expense')
-      .forEach(t => {
-        categoryTotals[t.category] = (categoryTotals[t.category] || 0) + t.amount;
+      .filter((t: any) => t.type === 'expense')
+      .forEach((t: any) => {
+        categoryTotals[t.category] = (categoryTotals[t.category] || 0) + (typeof t.amount === 'number' ? t.amount : parseFloat(t.amount) || 0);
       });
 
     return Object.entries(categoryTotals)
@@ -101,7 +151,7 @@ export default function ReportsScreen() {
   const monthlyTrend = useMemo(() => {
     const monthlyData: { [key: string]: { income: number; expenses: number } } = {};
     
-    financialData.transactions.forEach(t => {
+    financialData.transactions.forEach((t: any) => {
       const monthKey = new Date(t.date).toLocaleDateString('en-US', { 
         month: 'short' 
       });
@@ -110,10 +160,12 @@ export default function ReportsScreen() {
         monthlyData[monthKey] = { income: 0, expenses: 0 };
       }
       
+      const amount = typeof t.amount === 'number' ? t.amount : parseFloat(t.amount) || 0;
+      
       if (t.type === 'income') {
-        monthlyData[monthKey].income += t.amount;
+        monthlyData[monthKey].income += amount;
       } else {
-        monthlyData[monthKey].expenses += t.amount;
+        monthlyData[monthKey].expenses += amount;
       }
     });
 
@@ -129,9 +181,10 @@ export default function ReportsScreen() {
     const categorySpending: { [key: string]: number } = {};
     
     financialData.transactions
-      .filter(t => t.type === 'expense')
-      .forEach(t => {
-        categorySpending[t.category] = (categorySpending[t.category] || 0) + t.amount;
+      .filter((t: any) => t.type === 'expense')
+      .forEach((t: any) => {
+        const amount = typeof t.amount === 'number' ? t.amount : parseFloat(t.amount) || 0;
+        categorySpending[t.category] = (categorySpending[t.category] || 0) + amount;
       });
 
     return getCategoriesByType('expense')
@@ -142,19 +195,106 @@ export default function ReportsScreen() {
       }));
   }, [financialData.transactions]);
 
-  const onRefresh = React.useCallback(() => {
+  const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    setTimeout(() => {
+    try {
+      await refetch();
+    } catch (error) {
+      console.error('Error refreshing data:', error);
+    } finally {
       setRefreshing(false);
-    }, 1000);
+    }
+  }, [refetch]);
+  
+  // ✅ Load transactions when screen mounts (only once) - HOOK CALLED BEFORE CONDITIONALS
+  React.useEffect(() => {
+    // Data automatically loaded by useTransactions hook
   }, []);
 
   const formatCurrency = (amount: number) => {
-    return `$${Math.abs(amount).toLocaleString('en-US', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })}`;
+    return formatIDR(amount);
   };
+  
+  // ✅ NOW SAFE TO HAVE CONDITIONAL RETURNS - ALL HOOKS CALLED ABOVE
+  
+  // Show loading state for auth
+  if (status === 'loading') {
+    return (
+      <View className="flex-1" style={{ backgroundColor }}>
+        <Header title="Reports" />
+        <View className="flex-1 justify-center items-center">
+          <Text className="text-muted-foreground">Loading...</Text>
+        </View>
+      </View>
+    );
+  }
+
+  // Show unauthenticated state
+  if (status === 'unauthenticated' || !session?.user?.id) {
+    return (
+      <View className="flex-1" style={{ backgroundColor }}>
+        <Header title="Reports" />
+        <View className="flex-1 justify-center items-center p-4">
+          <Text className="text-lg font-semibold mb-2">Please sign in</Text>
+          <Text className="text-muted-foreground text-center mb-4">
+            Sign in to view your financial reports.
+          </Text>
+        </View>
+      </View>
+    );
+  }
+  
+  // Show loading state
+  if (isLoading) {
+    return (
+      <View className="flex-1" style={{ backgroundColor }}>
+        <Header title="Reports" />
+        <View className="flex-1 justify-center items-center">
+          <Text className="text-muted-foreground">Loading reports...</Text>
+        </View>
+      </View>
+    );
+  }
+  
+  // Show error state
+  if (error) {
+    return (
+      <View className="flex-1" style={{ backgroundColor }}>
+        <Header title="Reports" />
+        <View className="flex-1 justify-center items-center p-4">
+          <Text className="text-destructive mb-2">Error loading data</Text>
+          <Text className="text-muted-foreground text-center mb-4">{error}</Text>
+          <TouchableOpacity
+            className="bg-primary px-4 py-2 rounded-lg"
+            onPress={() => refetch()}
+          >
+            <Text className="text-primary-foreground">Try Again</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+  
+  // Show empty state if no transactions (but only if we have loaded and there really are none)
+  if (!isLoading && transactions.length === 0) {
+    return (
+      <View className="flex-1" style={{ backgroundColor }}>
+        <Header title="Reports" />
+        <View className="flex-1 justify-center items-center p-4">
+          <Text className="text-lg font-semibold mb-2">No data available</Text>
+          <Text className="text-muted-foreground text-center mb-4">
+            Add some transactions to see your financial reports.
+          </Text>
+          <TouchableOpacity
+            className="bg-primary px-4 py-2 rounded-lg"
+            onPress={onRefresh}
+          >
+            <Text className="text-primary-foreground">Refresh</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View className="flex-1" style={{ backgroundColor }}>
@@ -169,7 +309,7 @@ export default function ReportsScreen() {
             }}
           >
             <Text className="text-sm mr-1">{selectedPeriod}</Text>
-            <ChevronDown size={16} color={useThemeColor({}, 'muted-foreground')} />
+            <ChevronDown size={16} color={mutedForegroundColor} />
           </TouchableOpacity>
         }
       />
@@ -182,6 +322,20 @@ export default function ReportsScreen() {
         }
       >
         <View className="p-4 gap-6">
+          {/* Debug Info - Remove in production */}
+          {__DEV__ && (
+            <View className="bg-muted p-4 rounded-lg">
+              <Text className="text-sm font-semibold mb-2">Debug Info:</Text>
+              <Text className="text-xs">Total Transactions: {transactions.length}</Text>
+              <Text className="text-xs">Period Transactions: {financialData.transactions.length}</Text>
+              <Text className="text-xs">Income: {formatCurrency(financialData.income)}</Text>
+              <Text className="text-xs">Expenses: {formatCurrency(financialData.expenses)}</Text>
+              <Text className="text-xs">User ID: {userId}</Text>
+              <Text className="text-xs">Loading: {isLoading.toString()}</Text>
+              <Text className="text-xs">Error: {error || 'none'}</Text>
+            </View>
+          )}
+
           {/* Key Metrics */}
           <View>
             <Text className="text-lg font-semibold mb-3">Financial Overview</Text>
@@ -197,7 +351,7 @@ export default function ReportsScreen() {
                     period: "vs previous"
                   }}
                   icon={TrendingUp}
-                  color={useThemeColor({}, 'success')}
+                  color={successColor}
                 />
               </View>
               <View className="flex-1">
@@ -211,7 +365,7 @@ export default function ReportsScreen() {
                     period: "vs previous"
                   }}
                   icon={TrendingDown}
-                  color={useThemeColor({}, 'destructive')}
+                  color={destructiveColor}
                 />
               </View>
             </View>
@@ -229,7 +383,7 @@ export default function ReportsScreen() {
                     type: financialData.netIncome >= 0 ? "increase" : "decrease",
                   }}
                   icon={DollarSign}
-                  color={financialData.netIncome >= 0 ? useThemeColor({}, 'success') : useThemeColor({}, 'destructive')}
+                  color={financialData.netIncome >= 0 ? successColor : destructiveColor}
                 />
               </View>
               <View className="flex-1">
@@ -242,7 +396,7 @@ export default function ReportsScreen() {
                     type: financialData.savingsRate >= 20 ? "increase" : "neutral",
                   }}
                   icon={Target}
-                  color={useThemeColor({}, 'primary')}
+                  color={primaryColor}
                 />
               </View>
             </View>
@@ -293,7 +447,7 @@ export default function ReportsScreen() {
                 <View className="flex-row items-start">
                   <View className="w-2 h-2 rounded-full bg-success mt-2 mr-3" />
                   <View className="flex-1">
-                    <Text className="font-medium mb-1" style={{ color: useThemeColor({}, 'success') }}>
+                    <Text className="font-medium mb-1" style={{ color: successColor }}>
                       Great savings rate!
                     </Text>
                     <Text className="text-sm text-muted-foreground">
@@ -305,7 +459,7 @@ export default function ReportsScreen() {
                 <View className="flex-row items-start">
                   <View className="w-2 h-2 rounded-full bg-warning mt-2 mr-3" />
                   <View className="flex-1">
-                    <Text className="font-medium mb-1" style={{ color: useThemeColor({}, 'warning') }}>
+                    <Text className="font-medium mb-1" style={{ color: warningColor }}>
                       Consider increasing savings
                     </Text>
                     <Text className="text-sm text-muted-foreground">

@@ -6,6 +6,18 @@
     "paths": {
       "~/*": [
         "*"
+      ],
+      "@/*": [
+        "*"
+      ],
+      "@features/*": [
+        "features/*"
+      ],
+      "@utils/*": [
+        "utils/*"
+      ],
+      "@constants/*": [
+        "constants/*"
       ]
     }
   },

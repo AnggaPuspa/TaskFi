@@ -3,12 +3,12 @@ import { View, TouchableOpacity } from 'react-native';
 import { TrendingUp, TrendingDown, Eye, EyeOff } from 'lucide-react-native';
 import { Text } from '../../../components/ui/text';
 import { useThemeColor } from '../../../hooks/useThemeColor';
+import { formatIDR } from '../../../utils/currency';
 
 interface BalanceHeaderProps {
   totalBalance: number;
   monthlyIncome: number;
   monthlyExpenses: number;
-  currency?: string;
   allowVisibilityToggle?: boolean;
 }
 
@@ -16,7 +16,6 @@ export function BalanceHeader({
   totalBalance,
   monthlyIncome,
   monthlyExpenses,
-  currency = '$',
   allowVisibilityToggle = true,
 }: BalanceHeaderProps) {
   const [isBalanceVisible, setIsBalanceVisible] = useState(true);
@@ -28,10 +27,7 @@ export function BalanceHeader({
 
   const formatAmount = (amount: number): string => {
     if (!isBalanceVisible) return '••••••';
-    return `${currency}${Math.abs(amount).toLocaleString('en-US', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })}`;
+    return formatIDR(Math.abs(amount));
   };
 
   const netIncome = monthlyIncome - monthlyExpenses;

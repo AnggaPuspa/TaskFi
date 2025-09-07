@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { View, Alert, ScrollView, Platform } from 'react-native'
-import { useSession } from '../utils/ctx'
+import { useAuth } from '~/features/auth/AuthProvider'
 import { useProfile } from '../hooks/useProfile'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
@@ -14,7 +14,7 @@ import * as ImagePicker from 'expo-image-picker'
 import { LoadingScreen } from './LoadingScreen'
 
 export default function Profile() {
-    const { session, signOut } = useSession()
+    const { session, signOut } = useAuth()
     const { profile, setProfile, loading, saving, updateProfile, uploadAvatar: uploadAvatarHook } = useProfile()
     const [uploading, setUploading] = useState(false)
 

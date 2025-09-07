@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, ScrollView, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, ScrollView, Alert, KeyboardAvoidingView, Platform, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ArrowUpCircle, ArrowDownCircle, Save, Trash2 } from 'lucide-react-native';
@@ -14,120 +14,160 @@ import {
   AmountInput, 
   SelectSheet, 
   CustomDateTimePicker,
+  TimePickerField,
   LoadingOverlay 
 } from '~/src/shared/ui';
-
-import { mockCategories, getCategoriesByType, getTransactionById } from '~/src/mocks';
-import { TransactionType, TransactionFormData } from '~/src/types';
 import { useThemeColor } from '~/hooks/useThemeColor';
+import { useTransactions } from '~/features/transactions/hooks';
+import { Transaction } from '~/src/types';
+import { parseIDR, formatInputIDR } from '~/utils/currency';
+
+interface FormData {
+  type: 'income' | 'expense';
+  category: string;
+  title: string;
+  amount: string;
+  date: Date;
+  time?: Date;
+  note?: string;
+  wallet?: string;
+}
+
+interface FormErrors {
+  type?: string;
+  category?: string;
+  title?: string;
+  amount?: string;
+  date?: string;
+  wallet?: string;
+  note?: string;
+}
 
 export default function AddTransactionScreen() {
   const insets = useSafeAreaInsets();
-  const params = useLocalSearchParams();
+  const { id } = useLocalSearchParams<{ id?: string }>();
+  const isEditing = !!id;
+
+  // ✅ Theme colors
   const backgroundColor = useThemeColor({}, 'background');
-  const successColor = useThemeColor({}, 'success');
   const destructiveColor = useThemeColor({}, 'destructive');
+  const primaryColor = useThemeColor({}, 'primary');
 
-  const transactionId = params.id as string;
-  const isEditing = !!transactionId;
+  // ✅ Hooks
+  const { 
+    transactions,
+    addTransaction, 
+    updateTransaction, 
+    deleteTransaction
+  } = useTransactions();
 
+  // ✅ State
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState<TransactionFormData>({
+  const [formData, setFormData] = useState<FormData>({
     type: 'expense',
     category: '',
     title: '',
-    note: '',
     amount: '',
     date: new Date(),
+    time: new Date(),
   });
 
-  const [errors, setErrors] = useState<Partial<TransactionFormData>>({});
+  const [errors, setErrors] = useState<FormErrors>({});
 
-  // Load transaction data for editing
+  // ✅ Load transaction data if editing
   useEffect(() => {
-    if (isEditing && transactionId) {
-      const transaction = getTransactionById(transactionId);
+    if (isEditing && id) {
+      const transaction = transactions.find(t => t.id === id);
       if (transaction) {
         setFormData({
           type: transaction.type,
           category: transaction.category,
           title: transaction.title,
-          note: transaction.note || '',
-          amount: transaction.amount.toString(),
+          amount: formatInputIDR(transaction.amount),
           date: new Date(transaction.date),
+          time: new Date(),
+          note: transaction.note || undefined,
+          wallet: transaction.wallet || undefined,
         });
       }
     }
-  }, [isEditing, transactionId]);
+  }, [isEditing, id, transactions]);
 
   const validateForm = (): boolean => {
-    const newErrors: Partial<TransactionFormData> = {};
+    const newErrors: FormErrors = {};
 
-    if (!formData.title.trim()) {
-      newErrors.title = 'Title is required';
-    }
-
+    if (!formData.type) newErrors.type = 'Tipe transaksi harus dipilih';
+    if (!formData.category) newErrors.category = 'Kategori harus dipilih';
+    if (!formData.title.trim()) newErrors.title = 'Judul tidak boleh kosong';
     if (!formData.amount.trim()) {
-      newErrors.amount = 'Amount is required';
-    } else if (isNaN(parseFloat(formData.amount)) || parseFloat(formData.amount) <= 0) {
-      newErrors.amount = 'Please enter a valid amount';
+      newErrors.amount = 'Nominal tidak boleh kosong';
+    } else {
+      const parsedAmount = parseIDR(formData.amount);
+      if (isNaN(parsedAmount) || parsedAmount <= 0) {
+        newErrors.amount = 'Nominal harus berupa angka positif';
+      }
     }
-
-    if (!formData.category) {
-      newErrors.category = 'Please select a category';
-    }
+    if (!formData.date) newErrors.date = 'Tanggal harus dipilih';
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSave = async () => {
-    if (!validateForm()) return;
+    if (!validateForm()) {
+      Alert.alert('Form Tidak Valid', 'Mohon periksa dan lengkapi semua field yang diperlukan.');
+      return;
+    }
 
     setLoading(true);
-    
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // In a real app, this would save to API/database
-      console.log('Save transaction:', {
-        ...formData,
-        amount: parseFloat(formData.amount),
-        date: formData.date.toISOString(),
-      });
+      const transactionData = {
+        type: formData.type,
+        category: formData.category,
+        title: formData.title,
+        note: formData.note || null,
+        amount: parseIDR(formData.amount),
+        date: formData.date.toISOString().split('T')[0], // YYYY-MM-DD format
+        wallet: formData.wallet || null,
+      };
+
+      if (isEditing && id) {
+        await updateTransaction(id, transactionData);
+        Alert.alert('Berhasil!', 'Transaksi berhasil diperbarui.');
+      } else {
+        await addTransaction(transactionData);
+        Alert.alert('Berhasil!', 'Transaksi berhasil disimpan.');
+      }
 
       router.back();
     } catch (error) {
-      Alert.alert('Error', 'Failed to save transaction. Please try again.');
+      console.error('Error saving transaction:', error);
+      Alert.alert('Error', `Gagal ${isEditing ? 'memperbarui' : 'menyimpan'} transaksi. Silakan coba lagi.`);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDelete = () => {
-    if (!isEditing) return;
+  const handleDelete = async () => {
+    if (!isEditing || !id) return;
 
     Alert.alert(
-      'Delete Transaction',
-      'Are you sure you want to delete this transaction? This action cannot be undone.',
+      'Hapus Transaksi',
+      'Apakah Anda yakin ingin menghapus transaksi ini?',
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: 'Batal', style: 'cancel' },
         {
-          text: 'Delete',
+          text: 'Hapus',
           style: 'destructive',
           onPress: async () => {
             setLoading(true);
             try {
-              // Simulate API call
-              await new Promise(resolve => setTimeout(resolve, 500));
-              
-              // In a real app, this would delete from API/database
-              console.log('Delete transaction:', transactionId);
-              
+              await deleteTransaction(id);
+              Alert.alert('Berhasil!', 'Transaksi berhasil dihapus.');
               router.back();
             } catch (error) {
-              Alert.alert('Error', 'Failed to delete transaction. Please try again.');
+              console.error('Error deleting transaction:', error);
+              Alert.alert('Error', 'Gagal menghapus transaksi. Silakan coba lagi.');
             } finally {
               setLoading(false);
             }
@@ -137,112 +177,116 @@ export default function AddTransactionScreen() {
     );
   };
 
-  const handleTypeChange = (type: TransactionType) => {
-    setFormData(prev => ({
-      ...prev,
-      type,
-      category: '', // Reset category when type changes
-    }));
-    setErrors(prev => ({ ...prev, category: undefined }));
-  };
+  const incomeCategories = [
+    { id: 'salary', name: 'Gaji', color: '#10B981' },
+    { id: 'freelance', name: 'Freelance', color: '#3B82F6' },
+    { id: 'investment', name: 'Investasi', color: '#8B5CF6' },
+    { id: 'bonus', name: 'Bonus', color: '#F59E0B' },
+    { id: 'gift', name: 'Hadiah', color: '#EF4444' },
+    { id: 'other-income', name: 'Lainnya', color: '#6B7280' },
+  ];
 
-  const categoriesForType = getCategoriesByType(formData.type);
-  const categoryOptions = categoriesForType.map(cat => ({
-    label: cat.name,
-    value: cat.id,
-    icon: () => <Text style={{ color: cat.color }}>💰</Text>,
-    color: cat.color,
-  }));
+  const expenseCategories = [
+    { id: 'food', name: 'Makanan', color: '#EF4444' },
+    { id: 'transport', name: 'Transportasi', color: '#3B82F6' },
+    { id: 'shopping', name: 'Belanja', color: '#F59E0B' },
+    { id: 'entertainment', name: 'Hiburan', color: '#8B5CF6' },
+    { id: 'health', name: 'Kesehatan', color: '#10B981' },
+    { id: 'bills', name: 'Tagihan', color: '#6B7280' },
+    { id: 'education', name: 'Pendidikan', color: '#14B8A6' },
+    { id: 'other-expense', name: 'Lainnya', color: '#9CA3AF' },
+  ];
+
+  const availableCategories = formData.type === 'income' ? incomeCategories : expenseCategories;
 
   return (
-    <KeyboardAvoidingView 
-      className="flex-1" 
-      style={{ backgroundColor }}
+    <KeyboardAvoidingView
+      className="flex-1"
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={{ backgroundColor }}
     >
       <Header 
-        title={isEditing ? 'Edit Transaction' : 'Add Transaction'}
+        title={isEditing ? 'Edit Transaksi' : 'Tambah Transaksi'}
         showBackButton
-        onBackPress={() => router.back()}
         rightActions={
           isEditing ? (
-            <Button
-              variant="ghost"
+            <TouchableOpacity
               onPress={handleDelete}
-              className="p-2"
-              accessibilityLabel="Delete transaction"
+              disabled={loading}
+              className="mr-2"
             >
               <Trash2 size={20} color={destructiveColor} />
-            </Button>
+            </TouchableOpacity>
           ) : undefined
         }
       />
 
-      <ScrollView 
-        className="flex-1"
-        contentContainerStyle={{ 
-          paddingBottom: insets.bottom + 100,
-          flexGrow: 1,
-        }}
-        keyboardShouldPersistTaps="handled"
-      >
-        <View className="p-4 gap-6">
+      <ScrollView className="flex-1 p-4">
+        <View className="gap-6">
           {/* Transaction Type */}
-          <FormField label="Type" required>
+          <FormField 
+            label="Tipe Transaksi" 
+            required
+            error={errors.type}
+          >
             <View className="flex-row gap-3">
-              <Button
-                variant={formData.type === 'income' ? 'default' : 'outline'}
-                onPress={() => handleTypeChange('income')}
-                className="flex-1 h-12"
-                style={{
-                  backgroundColor: formData.type === 'income' ? successColor : 'transparent',
+              <TouchableOpacity
+                onPress={() => {
+                  setFormData(prev => ({ ...prev, type: 'income', category: '' }));
+                  if (errors.type) {
+                    setErrors(prev => ({ ...prev, type: undefined }));
+                  }
                 }}
+                className={`flex-1 p-4 rounded-lg border ${
+                  formData.type === 'income' 
+                    ? 'border-success bg-success/10' 
+                    : 'border-border bg-card'
+                }`}
               >
-                <View className="flex-row items-center">
-                  <ArrowUpCircle 
-                    size={20} 
-                    color={formData.type === 'income' ? 'white' : successColor} 
+                <View className="items-center">
+                  <ArrowUpCircle
+                    size={32}
+                    color={formData.type === 'income' ? '#10B981' : '#6B7280'}
                   />
-                  <Text 
-                    className="ml-2 font-medium"
-                    style={{ 
-                      color: formData.type === 'income' ? 'white' : successColor 
-                    }}
-                  >
-                    Income
+                  <Text className={`text-sm mt-2 ${
+                    formData.type === 'income' ? 'text-success' : 'text-muted-foreground'
+                  }`}>
+                    Pemasukan
                   </Text>
                 </View>
-              </Button>
-              
-              <Button
-                variant={formData.type === 'expense' ? 'default' : 'outline'}
-                onPress={() => handleTypeChange('expense')}
-                className="flex-1 h-12"
-                style={{
-                  backgroundColor: formData.type === 'expense' ? destructiveColor : 'transparent',
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => {
+                  setFormData(prev => ({ ...prev, type: 'expense', category: '' }));
+                  if (errors.type) {
+                    setErrors(prev => ({ ...prev, type: undefined }));
+                  }
                 }}
+                className={`flex-1 p-4 rounded-lg border ${
+                  formData.type === 'expense' 
+                    ? 'border-destructive bg-destructive/10' 
+                    : 'border-border bg-card'
+                }`}
               >
-                <View className="flex-row items-center">
-                  <ArrowDownCircle 
-                    size={20} 
-                    color={formData.type === 'expense' ? 'white' : destructiveColor} 
+                <View className="items-center">
+                  <ArrowDownCircle
+                    size={32}
+                    color={formData.type === 'expense' ? '#EF4444' : '#6B7280'}
                   />
-                  <Text 
-                    className="ml-2 font-medium"
-                    style={{ 
-                      color: formData.type === 'expense' ? 'white' : destructiveColor 
-                    }}
-                  >
-                    Expense
+                  <Text className={`text-sm mt-2 ${
+                    formData.type === 'expense' ? 'text-destructive' : 'text-muted-foreground'
+                  }`}>
+                    Pengeluaran
                   </Text>
                 </View>
-              </Button>
+              </TouchableOpacity>
             </View>
           </FormField>
 
           {/* Amount */}
           <FormField 
-            label="Amount" 
+            label="Nominal" 
             required
             error={errors.amount}
           >
@@ -254,34 +298,13 @@ export default function AddTransactionScreen() {
                   setErrors(prev => ({ ...prev, amount: undefined }));
                 }
               }}
-              placeholder="0.00"
-              error={errors.amount}
-            />
-          </FormField>
-
-          {/* Category */}
-          <FormField 
-            label="Category" 
-            required
-            error={errors.category}
-          >
-            <SelectSheet
-              options={categoryOptions}
-              selectedValue={formData.category}
-              onSelect={(category) => {
-                setFormData(prev => ({ ...prev, category }));
-                if (errors.category) {
-                  setErrors(prev => ({ ...prev, category: undefined }));
-                }
-              }}
-              placeholder="Select a category"
-              title={`Select ${formData.type === 'income' ? 'Income' : 'Expense'} Category`}
+              placeholder="0"
             />
           </FormField>
 
           {/* Title */}
           <FormField 
-            label="Title" 
+            label="Judul" 
             required
             error={errors.title}
           >
@@ -293,38 +316,92 @@ export default function AddTransactionScreen() {
                   setErrors(prev => ({ ...prev, title: undefined }));
                 }
               }}
-              placeholder="e.g., Grocery shopping, Salary, etc."
-              error={!!errors.title}
+              placeholder="Masukkan judul transaksi"
+              returnKeyType="next"
+            />
+          </FormField>
+
+          {/* Category */}
+          <FormField 
+            label="Kategori" 
+            required
+            error={errors.category}
+          >
+            <SelectSheet
+              selectedValue={formData.category}
+              onSelect={(category: string) => {
+                setFormData(prev => ({ ...prev, category }));
+                if (errors.category) {
+                  setErrors(prev => ({ ...prev, category: undefined }));
+                }
+              }}
+              options={availableCategories.map(cat => ({
+                label: cat.name,
+                value: cat.id,
+                color: cat.color,
+              }))}
+              placeholder="Pilih kategori..."
             />
           </FormField>
 
           {/* Date */}
-          <FormField label="Date" required>
+          <FormField 
+            label="Tanggal Transaksi" 
+            required
+            error={errors.date}
+          >
             <CustomDateTimePicker
               value={formData.date}
-              onChange={(date) => setFormData(prev => ({ ...prev, date }))}
+              onChange={(date) => {
+                if (date) {
+                  setFormData(prev => ({ ...prev, date }));
+                  if (errors.date) {
+                    setErrors(prev => ({ ...prev, date: undefined }));
+                  }
+                }
+              }}
+              placeholder="Pilih tanggal transaksi"
               mode="date"
               maximumDate={new Date()}
             />
           </FormField>
 
-          {/* Note (Optional) */}
-          <FormField 
-            label="Note" 
-            description="Add any additional details (optional)"
-          >
+          {/* Time (Optional) */}
+          <FormField label="Waktu Transaksi (Opsional)">
+            <TimePickerField
+              value={formData.time || new Date()}
+              onChange={(time) => setFormData(prev => ({ ...prev, time }))}
+              placeholder="Pilih waktu transaksi"
+            />
+          </FormField>
+
+          {/* Wallet (Optional) */}
+          <FormField label="Dompet/Akun">
+            <Input
+              value={formData.wallet || ''}
+              onChangeText={(wallet) => setFormData(prev => ({ ...prev, wallet: wallet || undefined }))}
+              placeholder="Pilih dompet atau akun..."
+            />
+          </FormField>
+
+          {/* Note */}
+          <FormField label="Catatan">
             <Textarea
               value={formData.note || ''}
               onChangeText={(note) => setFormData(prev => ({ ...prev, note }))}
-              placeholder="Add a note..."
+              placeholder="Tambahkan catatan tambahan..."
               numberOfLines={3}
+              className="min-h-20"
             />
           </FormField>
         </View>
       </ScrollView>
 
-      {/* Save Button */}
-      <View className="p-4 border-t border-border bg-background">
+      {/* Footer with Save Button */}
+      <View 
+        className="p-4 border-t border-border bg-card"
+        style={{ paddingBottom: insets.bottom + 16 }}
+      >
         <Button
           onPress={handleSave}
           disabled={loading}
@@ -332,14 +409,14 @@ export default function AddTransactionScreen() {
         >
           <View className="flex-row items-center">
             <Save size={20} color="white" />
-            <Text className="ml-2 text-white font-semibold">
-              {loading ? 'Saving...' : isEditing ? 'Update Transaction' : 'Save Transaction'}
+            <Text className="text-white font-medium ml-2">
+              {isEditing ? 'Perbarui Transaksi' : 'Simpan Transaksi'}
             </Text>
           </View>
         </Button>
       </View>
 
-      <LoadingOverlay visible={loading} message={loading ? 'Saving transaction...' : ''} />
+      {loading && <LoadingOverlay visible={true} />}
     </KeyboardAvoidingView>
   );
 }

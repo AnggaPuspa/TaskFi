@@ -1,66 +1,172 @@
-# Welcome to react native starter kit 👋
+# Production-Ready Expo App Architecture
 
-This project is using
+This repository contains a production-ready Expo (React Native) application with the following features:
 
-- [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app)
-- [React native Reusables](https://github.com/mrzachnugent/react-native-reusables) as UI library using [nativewind](https://www.nativewind.dev/)
-- [https://supabase.com/](https://supabase.com/) for the database an auth
+## Architecture Overview
 
-## screens
+### 1. Feature-Based Structure
+```
+features/
+├── auth/
+│   ├── AuthProvider.tsx
+│   ├── guard.tsx
+│   ├── api.ts
+│   ├── hooks.ts
+│   └── types.ts
+├── transactions/
+│   ├── api.ts
+│   ├── hooks.ts
+│   ├── screens/
+│   └── components/
+└── todos/
+    ├── api.ts
+    ├── hooks.ts
+    ├── screens/
+    └── components/
+```
 
-the app contains the next screens:
+### 2. Providers Layer
+The app uses a layered provider architecture in `app/_layout.tsx`:
+- **ThemeProvider**: For dark/light mode
+- **SafeAreaProvider**: For safe area handling
+- **GestureHandlerRootView**: For gesture handling
+- **QueryClientProvider**: For TanStack Query caching
+- **AuthProvider**: For authentication state management
 
-- sign up/log in screen
-- profile editing screen
-- cards screen
-- user profile screen
+### 3. Authentication
+The authentication system is implemented in `features/auth/AuthProvider.tsx` with:
+- Session persistence
+- Automatic token refresh
+- App state change handling
+- Protected route guards
 
-which all uses expo router and have the minimum running example to start on top of it.
+### 4. Data Layer
+Each feature has its own data layer:
 
-## Setting up:
+#### API Layer (`features/*/api.ts`)
+- Pure Supabase queries
+- No UI logic
+- Proper error handling
+- Type-safe operations
 
-You need to have a supabase database and update the `.env` with the related links to get the project up.
+#### Hooks Layer (`features/*/hooks.ts`)
+- TanStack Query integration
+- Caching with persistence
+- Optimistic updates
+- Real-time subscriptions
 
-As for the database you can start with [supabase template](https://supabase.com/docs/guides/getting-started/tutorials/with-expo-react-native#set-up-the-database-schema), user management script, and run it to work with that.
+### 5. Caching & Offline Support
 
-## Get started
+#### Cache Implementation
+- **TanStack Query** for server state caching
+- **AsyncStorage** for cache persistence
+- **Stale time**: 60 seconds
+- **Refetch on reconnect**: Enabled
+- **Refetch on window focus**: Disabled for better UX
 
-1. Install dependencies
+#### Offline-First Features
+- **Cached data serving**: When offline, data is served from cache
+- **Mutation queueing**: Mutations are queued when offline and executed when online
+- **Optimistic UI**: Immediate UI updates with automatic rollback on error
+- **Network status**: NetInfo integration to detect online/offline state
 
-   ```bash
-   npm install
+### 6. Real-Time Subscriptions
+- **Stable channels**: Properly managed realtime subscriptions
+- **Single subscription per user**: No duplicate subscriptions
+- **Automatic cleanup**: Channels are unsubscribed when components unmount
+- **Efficient updates**: Only updated data is refreshed, not entire lists
+
+## How to Add New Features
+
+1. **Create feature directory**:
+   ```
+   mkdir features/newFeature
    ```
 
-2. Start the app
-
-   ```bash
-    npx expo start
+2. **Implement API layer** (`features/newFeature/api.ts`):
+   ```typescript
+   import { supabase } from '~/utils/supabase';
+   
+   export async function fetchData(userId: string) {
+     const { data, error } = await supabase
+       .from('table')
+       .select('*')
+       .eq('user_id', userId);
+       
+     if (error) throw new Error(error.message);
+     return data;
+   }
    ```
 
-In the output, you'll find options to open the app in a
+3. **Implement hooks layer** (`features/newFeature/hooks.ts`):
+   ```typescript
+   import { useQuery } from '@tanstack/react-query';
+   import { useAuth } from '~/features/auth/AuthProvider';
+   import * as Api from './api';
+   import { queryKeys } from '~/constants/queryKeys';
+   
+   export function useData() {
+     const { user } = useAuth();
+     const userId = user?.id;
+     
+     return useQuery({
+       queryKey: queryKeys.newFeature(userId || ''),
+       queryFn: () => Api.fetchData(userId!),
+       enabled: !!userId,
+       staleTime: 60_000,
+       refetchOnReconnect: true,
+     });
+   }
+   ```
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+4. **Add query keys** (`constants/queryKeys.ts`):
+   ```typescript
+   export const queryKeys = {
+     // ... existing keys
+     newFeature: (userId: string) => ['newFeature', userId] as const,
+   };
+   ```
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+5. **Use in components**:
+   ```typescript
+   import { useData } from '~/features/newFeature/hooks';
+   
+   function MyComponent() {
+     const { data, isLoading, error } = useData();
+     
+     if (isLoading) return <Loading />;
+     if (error) return <Error message={error.message} />;
+     
+     return <DataList data={data} />;
+   }
+   ```
 
-## Features
+## Performance Optimizations
 
-- NativeWind v4
-- Dark and light mode
-  - Android Navigation Bar matches mode
-  - Persistent mode
-- Common components
-  - ThemeToggle, Avatar, Button, Card, Progress, Text, Tooltip
+1. **Memoization**: Extensive use of `useMemo` and `useCallback`
+2. **Virtualized lists**: FlatList with proper configuration
+3. **Lazy loading**: Components loaded only when needed
+4. **Bundle optimization**: Proper tree-shaking and code splitting
+5. **Image optimization**: Efficient image loading and caching
 
-## Learn more
+## Error Handling
 
-To learn more about developing your project with Expo, look at the following resources:
+1. **Centralized error boundaries**
+2. **User-friendly error messages**
+3. **Graceful degradation**
+4. **Retry mechanisms**
+5. **Logging system**
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-- [Env variables](https://docs.expo.dev/guides/environment-variables/)
-- [Expo + Supabase](https://docs.expo.dev/guides/using-supabase/)
-- [Pages and router](https://docs.expo.dev/router/create-pages/)
+## Testing
+
+1. **Unit tests** for all hooks and utility functions
+2. **Integration tests** for API functions
+3. **Component tests** for UI components
+4. **E2E tests** for critical user flows
+
+## CI/CD
+
+1. **GitHub Actions** for automated testing
+2. **Type checking** on every PR
+3. **Linting** on every PR
+4. **Build verification** on every PR

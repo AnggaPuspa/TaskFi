@@ -2,6 +2,7 @@ import React, { forwardRef } from 'react';
 import { TextInput, TextInputProps, View } from 'react-native';
 import { useThemeColor } from '../../../hooks/useThemeColor';
 import { Text } from '../../../components/ui/text';
+import { formatInputIDR, parseIDR } from '../../../utils/currency';
 
 interface AmountInputProps extends Omit<TextInputProps, 'value' | 'onChangeText'> {
   value: string;
@@ -11,32 +12,31 @@ interface AmountInputProps extends Omit<TextInputProps, 'value' | 'onChangeText'
 }
 
 export const AmountInput = forwardRef<TextInput, AmountInputProps>(
-  ({ value, onChangeText, currency = '$', error, ...props }, ref) => {
+  ({ value, onChangeText, currency = 'Rp', error, ...props }, ref) => {
     const borderColor = useThemeColor({}, error ? 'destructive' : 'border');
     const textColor = useThemeColor({}, 'foreground');
     const backgroundColor = useThemeColor({}, 'background');
     const placeholderColor = useThemeColor({}, 'muted-foreground');
 
     const handleTextChange = (text: string) => {
-      // Remove any non-numeric characters except decimal point
-      const numericText = text.replace(/[^0-9.]/g, '');
+      // Remove all non-numeric characters except decimal
+      const numericText = text.replace(/[^0-9]/g, '');
       
-      // Ensure only one decimal point
-      const parts = numericText.split('.');
-      if (parts.length > 2) {
-        const formattedText = parts[0] + '.' + parts.slice(1).join('');
-        onChangeText(formattedText);
+      if (numericText === '') {
+        onChangeText('');
         return;
       }
       
-      // Limit decimal places to 2
-      if (parts[1] && parts[1].length > 2) {
-        const formattedText = parts[0] + '.' + parts[1].substring(0, 2);
-        onChangeText(formattedText);
-        return;
-      }
-      
-      onChangeText(numericText);
+      // Convert to number and format for Indonesian locale
+      const number = parseInt(numericText, 10);
+      const formattedText = formatInputIDR(number);
+      onChangeText(formattedText);
+    };
+
+    // Convert display value to actual number for storage
+    const getNumericValue = () => {
+      if (!value) return 0;
+      return parseIDR(value);
     };
 
     return (
@@ -50,7 +50,7 @@ export const AmountInput = forwardRef<TextInput, AmountInputProps>(
             value={value}
             onChangeText={handleTextChange}
             keyboardType="numeric"
-            placeholder="0.00"
+            placeholder="0"
             placeholderTextColor={placeholderColor}
             className="flex-1 h-11 px-3 py-2 text-lg rounded-lg border"
             style={{
@@ -59,7 +59,7 @@ export const AmountInput = forwardRef<TextInput, AmountInputProps>(
               color: textColor,
             }}
             accessibilityLabel="Amount input"
-            accessibilityHint="Enter the transaction amount"
+            accessibilityHint="Masukkan jumlah transaksi dalam Rupiah"
             {...props}
           />
         </View>

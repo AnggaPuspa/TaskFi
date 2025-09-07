@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { View, FlatList, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Plus } from 'lucide-react-native';
@@ -7,22 +7,25 @@ import { router } from 'expo-router';
 import { Text } from '~/components/ui/text';
 import { Header, FAB, EmptyState } from '~/src/shared/ui';
 import { TransactionCard, FilterBar } from '~/src/shared/components';
+import { useTransactions } from '~/features/transactions/hooks';
 
-import { mockTransactions } from '~/src/mocks';
-import { Transaction, TransactionFilters } from '~/src/types';
+import { TransactionFilters } from '~/src/types';
 import { useThemeColor } from '~/hooks/useThemeColor';
+import { withAuth } from '~/features/auth/guard';
 
-export default function TransactionsScreen() {
+function TransactionsScreen() {
   const insets = useSafeAreaInsets();
   const backgroundColor = useThemeColor({}, 'background');
   
   const [refreshing, setRefreshing] = useState(false);
   const [filters, setFilters] = useState<TransactionFilters>({});
   const [searchQuery, setSearchQuery] = useState('');
+  
+  const { transactions, isLoading: loading, error, refetch, deleteTransaction } = useTransactions();
 
   // Filter transactions based on current filters and search
   const filteredTransactions = useMemo(() => {
-    let filtered = [...mockTransactions];
+    let filtered = [...transactions];
 
     // Apply type filter
     if (filters.type) {
@@ -34,14 +37,8 @@ export default function TransactionsScreen() {
       filtered = filtered.filter(t => t.category === filters.category);
     }
 
-    // Apply search query
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase().trim();
-      filtered = filtered.filter(t => 
-        t.title.toLowerCase().includes(query) ||
-        (t.note && t.note.toLowerCase().includes(query))
-      );
-    }
+    // Apply search query - this is already handled by the hook via searchQuery
+    // No need to filter again here
 
     // Apply date filters if any
     if (filters.dateFrom) {
@@ -51,13 +48,13 @@ export default function TransactionsScreen() {
       filtered = filtered.filter(t => new Date(t.date) <= new Date(filters.dateTo!));
     }
 
-    // Sort by date (newest first)
-    return filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [filters, searchQuery]);
+    // Sort by date (newest first) - this is already handled by the hook
+    return filtered;
+  }, [transactions, filters]);
 
   // Group transactions by month for section headers
   const groupedTransactions = useMemo(() => {
-    const groups: { [key: string]: Transaction[] } = {};
+    const groups: { [key: string]: typeof transactions } = {};
     
     filteredTransactions.forEach(transaction => {
       const date = new Date(transaction.date);
@@ -78,34 +75,43 @@ export default function TransactionsScreen() {
     }));
   }, [filteredTransactions]);
 
-  const onRefresh = React.useCallback(() => {
+  const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    // Simulate refresh
-    setTimeout(() => {
+    try {
+      await refetch();
+    } catch (error) {
+      console.error('Error refreshing data:', error);
+    } finally {
       setRefreshing(false);
-    }, 1000);
-  }, []);
+    }
+  }, [refetch]);
 
   const handleAddTransaction = () => {
     router.push('/add-transaction');
   };
 
-  const handleEditTransaction = (transaction: Transaction) => {
+  const handleEditTransaction = (transaction: typeof transactions[0]) => {
     router.push(`/add-transaction?id=${transaction.id}`);
   };
 
-  const handleDeleteTransaction = (transaction: Transaction) => {
-    // In a real app, this would call an API or update state
-    console.log('Delete transaction:', transaction.id);
-    // You could show a confirmation dialog here
+  const handleDeleteTransaction = async (transaction: typeof transactions[0]) => {
+    try {
+      await deleteTransaction(transaction.id);
+    } catch (error) {
+      console.error('Error deleting transaction:', error);
+      // Could show an alert here
+    }
   };
 
-  const handleTransactionPress = (transaction: Transaction) => {
+  const handleTransactionPress = (transaction: typeof transactions[0]) => {
     // Navigate to transaction details or show modal
     console.log('View transaction:', transaction.id);
   };
 
-  const renderTransaction = ({ item }: { item: Transaction }) => (
+  // Load transactions automatically handled by the useTransactions hook
+  // No need for manual useEffect with loadTransactions
+
+  const renderTransaction = ({ item }: { item: typeof transactions[0] }) => (
     <TransactionCard
       transaction={item}
       onPress={() => handleTransactionPress(item)}
@@ -126,7 +132,7 @@ export default function TransactionsScreen() {
   );
 
   const renderFlatListData = () => {
-    const data: (Transaction | { type: 'header'; month: string })[] = [];
+    const data: (typeof transactions[0] | { type: 'header'; month: string })[] = [];
     
     groupedTransactions.forEach(({ month, transactions }) => {
       data.push({ type: 'header', month });
@@ -136,12 +142,50 @@ export default function TransactionsScreen() {
     return data;
   };
 
-  const renderItem = ({ item }: { item: Transaction | { type: 'header'; month: string } }) => {
+  const renderItem = ({ item }: { item: typeof transactions[0] | { type: 'header'; month: string } }) => {
     if ('type' in item && item.type === 'header') {
       return renderSectionHeader(item.month, 0);
     }
-    return renderTransaction({ item: item as Transaction });
+    return renderTransaction({ item: item as typeof transactions[0] });
   };
+
+  // Show loading state
+  if (loading) {
+    return (
+      <View className="flex-1" style={{ backgroundColor }}>
+        <Header title="Transactions" />
+        <View className="flex-1 justify-center items-center">
+          <Text className="text-muted-foreground">Loading transactions...</Text>
+        </View>
+      </View>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <View className="flex-1" style={{ backgroundColor }}>
+        <Header title="Transactions" />
+        <FilterBar
+          filters={filters}
+          onFiltersChange={setFilters}
+          onSearchChange={setSearchQuery}
+        />
+        <EmptyState
+          title="Error loading transactions"
+          description={(error as Error)?.message || 'An error occurred while loading transactions'}
+          actionLabel="Try Again"
+          onAction={() => refetch()}
+        />
+        <View className="absolute bottom-6 right-4">
+          <FAB
+            onPress={handleAddTransaction}
+            accessibilityLabel="Add new transaction"
+          />
+        </View>
+      </View>
+    );
+  }
 
   if (filteredTransactions.length === 0 && (searchQuery || Object.keys(filters).length > 0)) {
     return (
@@ -153,8 +197,8 @@ export default function TransactionsScreen() {
           onSearchChange={setSearchQuery}
         />
         <EmptyState
-          title="No transactions found\"
-          description="Try adjusting your filters or search criteria\"
+          title="No transactions found"
+          description="Try adjusting your filters or search criteria"
           actionLabel="Clear Filters"
           onAction={() => {
             setFilters({});
@@ -171,7 +215,7 @@ export default function TransactionsScreen() {
     );
   }
 
-  if (mockTransactions.length === 0) {
+  if (filteredTransactions.length === 0) {
     return (
       <View className="flex-1" style={{ backgroundColor }}>
         <Header title="Transactions" />
@@ -202,7 +246,7 @@ export default function TransactionsScreen() {
           if ('type' in item && item.type === 'header') {
             return `header-${item.month}`;
           }
-          return (item as Transaction).id;
+          return (item as typeof transactions[0]).id;
         }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
@@ -216,11 +260,7 @@ export default function TransactionsScreen() {
         maxToRenderPerBatch={10}
         windowSize={10}
         initialNumToRender={15}
-        getItemLayout={(data, index) => ({
-          length: 80, // Approximate item height
-          offset: 80 * index,
-          index,
-        })}
+        getItemLayout={undefined} // Remove getItemLayout for dynamic item heights
       />
 
       {/* Floating Action Button */}
@@ -234,3 +274,5 @@ export default function TransactionsScreen() {
     </View>
   );
 }
+
+export default withAuth(TransactionsScreen);
