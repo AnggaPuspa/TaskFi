@@ -1,0 +1,365 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TaskFish — Catatan Keuangan & To‑Do List</title>
+  <meta name="description" content="TaskFish: aplikasi open‑source untuk mengatur catatan keuangan dan to‑do list dalam satu tempat." />
+  <meta property="og:title" content="TaskFish — Catatan Keuangan & To‑Do List" />
+  <meta property="og:description" content="Aplikasi open‑source: catatan keuangan + to‑do list dalam satu." />
+  <meta property="og:type" content="website" />
+
+  <!-- Inter Font -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Tailwind CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkfbaR8Z8a1V9zzTtmIJ4Ix6W6bE3Q9f7D+4VtZ5d0ZQfV9GZC+MlrF2w==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+  <style>
+    :root{
+      --clr-primary:#6D28D9; /* ungu */
+      --clr-secondary:#0EA5E9; /* biru */
+      --clr-accent:#FFB020; /* amber */
+    }
+    html,body{font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji", sans-serif;}
+    /* util warna: hanya 3 warna solid (tanpa gradient) */
+    .bg-primary{background-color:var(--clr-primary);} .text-primary{color:var(--clr-primary);} .border-primary{border-color:var(--clr-primary);} 
+    .bg-secondary{background-color:var(--clr-secondary);} .text-secondary{color:var(--clr-secondary);} .border-secondary{border-color:var(--clr-secondary);} 
+    .bg-accent{background-color:var(--clr-accent);} .text-accent{color:var(--clr-accent);} .border-accent{border-color:var(--clr-accent);} 
+    .ring-primary:focus-visible{outline:none; box-shadow:0 0 0 4px color-mix(in oklab, var(--clr-primary) 30%, white);} 
+  </style>
+</head>
+<body class="antialiased text-slate-800">
+  <!-- Top Announcement / Trust bar -->
+  <div class="bg-slate-50 border-b border-slate-100 text-xs">
+    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-2 flex items-center justify-between gap-4">
+      <div class="flex items-center gap-2 text-slate-600">
+        <i class="fa-solid fa-shield-halved text-primary"></i>
+        <span>Open Source • MIT • Privasi diutamakan</span>
+      </div>
+      <div class="hidden sm:flex items-center gap-4 text-slate-500">
+        <span class="flex items-center gap-1"><i class="fa-solid fa-cloud-arrow-up text-secondary"></i> Sinkron Lintas Perangkat</span>
+        <span class="flex items-center gap-1"><i class="fa-solid fa-lock text-accent"></i> Keamanan Berlapis</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Navbar -->
+  <header class="sticky top-0 z-50 bg-white/90 backdrop-blur border-b border-slate-100">
+    <nav class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <a href="#" class="flex items-center gap-2 font-extrabold text-xl">
+        <span class="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-white">🐟</span>
+        <span>TaskFish</span>
+      </a>
+      <div class="hidden md:flex items-center gap-8 text-sm">
+        <a href="#fitur" class="hover:text-primary">Fitur</a>
+        <a href="#kantong" class="hover:text-primary">Kantong</a>
+        <a href="#cara" class="hover:text-primary">Cara Kerja</a>
+        <a href="#oss" class="hover:text-primary">Open Source</a>
+        <a href="#faq" class="hover:text-primary">FAQ</a>
+      </div>
+      <div class="hidden md:flex items-center gap-3">
+        <a href="#coba" class="px-4 py-2 rounded-xl bg-primary text-white hover:opacity-90 ring-primary">Coba Gratis</a>
+        <a href="https://github.com/username/taskfish" class="px-4 py-2 rounded-xl border border-slate-200 hover:border-primary hover:text-primary ring-primary">GitHub</a>
+      </div>
+      <button class="md:hidden inline-flex items-center justify-center h-10 w-10 rounded-lg border border-slate-200" aria-label="Menu" onclick="document.getElementById('mnav').classList.toggle('hidden')">
+        <i class="fa-solid fa-bars"></i>
+      </button>
+    </nav>
+    <!-- mobile nav -->
+    <div id="mnav" class="md:hidden hidden border-t border-slate-100">
+      <div class="px-4 py-3 flex flex-col gap-2 text-sm">
+        <a href="#fitur" class="py-2">Fitur</a>
+        <a href="#kantong" class="py-2">Kantong</a>
+        <a href="#cara" class="py-2">Cara Kerja</a>
+        <a href="#oss" class="py-2">Open Source</a>
+        <a href="#faq" class="py-2">FAQ</a>
+        <div class="pt-2 flex gap-3">
+          <a href="#coba" class="flex-1 text-center px-4 py-2 rounded-xl bg-primary text-white">Coba Gratis</a>
+          <a href="https://github.com/username/taskfish" class="flex-1 text-center px-4 py-2 rounded-xl border border-slate-200">GitHub</a>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <!-- Hero: konten ala Bank Jago (tegas, simple, fokus kendali uang) -->
+    <section class="relative">
+      <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-16 md:py-24">
+        <div class="grid md:grid-cols-2 gap-10 items-center">
+          <div>
+            <span class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent/20 text-accent text-xs font-semibold">
+              <i class="fa-solid fa-code-branch"></i> Open Source — MIT
+            </span>
+            <h1 class="mt-4 text-4xl md:text-5xl font-extrabold leading-tight">
+              Kendali penuh atas <span class="text-primary">uang</span> & <span class="text-secondary">aktivitas</span> harianmu
+            </h1>
+            <p class="mt-4 text-slate-600 text-lg">
+              TaskFish menggabungkan catatan keuangan, kantong (envelope budgeting), dan to‑do list dalam satu aplikasi sederhana.
+            </p>
+            <ul class="mt-4 text-slate-600 text-sm space-y-2">
+              <li class="flex items-center gap-2"><i class="fa-solid fa-circle-check text-primary"></i> Catat pemasukan/pengeluaran super cepat</li>
+              <li class="flex items-center gap-2"><i class="fa-solid fa-wallet text-secondary"></i> Atur <strong>kantong</strong> untuk tiap tujuan</li>
+              <li class="flex items-center gap-2"><i class="fa-solid fa-bell text-accent"></i> Pengingat tugas & tagihan jatuh tempo</li>
+            </ul>
+            <div class="mt-6 flex flex-wrap items-center gap-3">
+              <a id="coba" href="#" class="px-5 py-3 rounded-xl bg-primary text-white font-semibold hover:opacity-90 ring-primary">
+                <i class="fa-solid fa-rocket mr-2"></i>Coba TaskFish Gratis
+              </a>
+              <a href="https://github.com/username/taskfish" class="px-5 py-3 rounded-xl border border-slate-200 hover:border-primary hover:text-primary font-semibold ring-primary">
+                <i class="fa-brands fa-github mr-2"></i>Buka di GitHub
+              </a>
+            </div>
+            <div class="mt-4 text-xs text-slate-500 flex items-center gap-2">
+              <i class="fa-solid fa-shield-halved"></i> Tanpa iklan. Data milikmu sepenuhnya.
+            </div>
+          </div>
+          <!-- Mockup sederhana -->
+          <div class="md:justify-self-end">
+            <div class="w-full max-w-sm mx-auto rounded-2xl border border-slate-200 shadow-xl overflow-hidden">
+              <div class="bg-secondary text-white px-4 py-3 font-semibold flex items-center gap-2"><i class="fa-solid fa-fish"></i> TaskFish</div>
+              <div class="p-4 space-y-4 bg-white">
+                <div class="rounded-xl border border-slate-200 p-4">
+                  <div class="flex items-center justify-between">
+                    <span class="text-sm font-medium text-slate-500">Pengeluaran bulan ini</span>
+                    <span class="text-accent font-bold">-Rp 1.250.000</span>
+                  </div>
+                  <div class="mt-2 h-2 w-full bg-slate-100 rounded-full">
+                    <div class="h-2 bg-primary rounded-full" style="width:55%"></div>
+                  </div>
+                </div>
+                <div class="rounded-xl border border-slate-200 p-4">
+                  <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm font-medium text-slate-500">Kantong</span>
+                    <a href="#" class="text-xs text-primary hover:underline">Kelola</a>
+                  </div>
+                  <div class="grid grid-cols-3 gap-2 text-xs">
+                    <div class="rounded-lg border border-slate-200 p-2 text-center">
+                      <div class="font-semibold">Tabungan</div>
+                      <div class="text-primary">Rp 500k</div>
+                    </div>
+                    <div class="rounded-lg border border-slate-200 p-2 text-center">
+                      <div class="font-semibold">Belanja</div>
+                      <div class="text-secondary">Rp 350k</div>
+                    </div>
+                    <div class="rounded-lg border border-slate-200 p-2 text-center">
+                      <div class="font-semibold">Darurat</div>
+                      <div class="text-accent">Rp 200k</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="rounded-xl border border-slate-200 p-4">
+                  <div class="flex items-center gap-3">
+                    <input type="checkbox" class="h-4 w-4 rounded border-slate-300 text-primary focus:ring-0" checked>
+                    <span class="line-through text-slate-400">Bayar listrik</span>
+                  </div>
+                  <div class="mt-2 flex items-center gap-3">
+                    <input type="checkbox" class="h-4 w-4 rounded border-slate-300 text-primary focus:ring-0">
+                    <span>Buat anggaran mingguan</span>
+                  </div>
+                </div>
+                <button class="w-full px-4 py-2 rounded-xl bg-accent text-slate-900 font-semibold hover:opacity-90">
+                  <i class="fa-solid fa-plus mr-2"></i>Tambah Catatan
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Fitur khas (ringkas, to-the-point) -->
+    <section id="fitur" class="py-16 md:py-20 bg-slate-50">
+      <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <h2 class="text-3xl font-extrabold">Fitur Utama</h2>
+        <p class="mt-2 text-slate-600">Sederhana, fokus, dan cepat dipakai.</p>
+        <div class="mt-10 grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <article class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div class="h-10 w-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center text-lg"><i class="fa-solid fa-receipt"></i></div>
+            <h3 class="mt-4 font-semibold">Catatan Keuangan</h3>
+            <p class="mt-2 text-sm text-slate-600">Catat pemasukan/pengeluaran, kategori, lampirkan catatan, dan ekspor CSV.</p>
+          </article>
+          <article class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div class="h-10 w-10 rounded-lg bg-secondary/10 text-secondary flex items-center justify-center text-lg"><i class="fa-solid fa-list-check"></i></div>
+            <h3 class="mt-4 font-semibold">To‑Do List</h3>
+            <p class="mt-2 text-sm text-slate-600">Checklist prioritas, deadline, reminder; lihat yang penting saja.</p>
+          </article>
+          <article class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div class="h-10 w-10 rounded-lg bg-accent/20 text-accent flex items-center justify-center text-lg"><i class="fa-solid fa-lock"></i></div>
+            <h3 class="mt-4 font-semibold">Keamanan & Sinkron</h3>
+            <p class="mt-2 text-sm text-slate-600">Autentikasi aman, data terenkripsi at‑rest (opsional), sinkron lintas perangkat.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- Kantong / Envelope budgeting (mirip konsep Bank Jago) -->
+    <section id="kantong" class="py-16 md:py-20">
+      <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div class="grid md:grid-cols-2 gap-10 items-center">
+          <div>
+            <h2 class="text-3xl font-extrabold">Kantong untuk setiap tujuan</h2>
+            <p class="mt-3 text-slate-600">Pisahkan uang ke "kantong" berbeda: kebutuhan, tabungan, darurat, atau project. Cukup seret dan lepas alokasi setiap minggu.</p>
+            <ul class="mt-4 space-y-2 text-slate-700 text-sm">
+              <li class="flex gap-2"><i class="fa-solid fa-jar text-primary mt-1"></i> Envelope budgeting yang mudah dipahami</li>
+              <li class="flex gap-2"><i class="fa-solid fa-arrows-rotate text-secondary mt-1"></i> Aturan otomatis (auto‑allocate) setiap gajian</li>
+              <li class="flex gap-2"><i class="fa-solid fa-face-smile-beam text-accent mt-1"></i> Lihat progres tiap kantong tanpa pusing</li>
+            </ul>
+          </div>
+          <div class="md:justify-self-end w-full max-w-lg mx-auto">
+            <div class="rounded-2xl border border-slate-200 shadow-sm overflow-hidden bg-white">
+              <div class="px-4 py-3 border-b border-slate-100 font-semibold flex items-center gap-2"><i class="fa-solid fa-wallet text-primary"></i> Kantong Saya</div>
+              <ul class="p-4 space-y-3">
+                <li class="flex items-center justify-between rounded-xl border border-slate-200 p-3">
+                  <div class="flex items-center gap-3"><i class="fa-solid fa-circle text-primary"></i> Kebutuhan Bulanan</div>
+                  <div class="font-semibold text-slate-700">Rp 1.200.000</div>
+                </li>
+                <li class="flex items-center justify-between rounded-xl border border-slate-200 p-3">
+                  <div class="flex items-center gap-3"><i class="fa-solid fa-circle text-secondary"></i> Tabungan Liburan</div>
+                  <div class="font-semibold text-slate-700">Rp 750.000</div>
+                </li>
+                <li class="flex items-center justify-between rounded-xl border border-slate-200 p-3">
+                  <div class="flex items-center gap-3"><i class="fa-solid fa-circle text-accent"></i> Dana Darurat</div>
+                  <div class="font-semibold text-slate-700">Rp 500.000</div>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Cara kerja 3 langkah -->
+    <section id="cara" class="py-16 md:py-20 bg-slate-50">
+      <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <h2 class="text-3xl font-extrabold">Cara kerja dalam 3 langkah</h2>
+        <div class="mt-10 grid md:grid-cols-3 gap-6">
+          <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div class="h-10 w-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center text-lg"><i class="fa-solid fa-download"></i></div>
+            <h3 class="mt-3 font-semibold">1. Mulai & impor</h3>
+            <p class="text-sm text-slate-600 mt-1">Buat akun, impor transaksi (CSV) atau mulai dari nol.</p>
+          </div>
+          <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div class="h-10 w-10 rounded-lg bg-secondary/10 text-secondary flex items-center justify-center text-lg"><i class="fa-solid fa-diagram-project"></i></div>
+            <h3 class="mt-3 font-semibold">2. Set kantong & tugas</h3>
+            <p class="text-sm text-slate-600 mt-1">Buat kantong, alokasikan dana, dan tambah to‑do prioritas.</p>
+          </div>
+          <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div class="h-10 w-10 rounded-lg bg-accent/20 text-accent flex items-center justify-center text-lg"><i class="fa-solid fa-bolt"></i></div>
+            <h3 class="mt-3 font-semibold">3. Jalan otomatis</h3>
+            <p class="text-sm text-slate-600 mt-1">Atur aturan auto‑allocate & reminder—biarkan TaskFish bekerja.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Open Source -->
+    <section id="oss" class="py-16 md:py-20">
+      <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div class="rounded-2xl border border-slate-200 p-8 md:p-10 bg-white shadow-sm">
+          <span class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-secondary/10 text-secondary text-xs font-semibold">
+            <i class="fa-brands fa-github"></i> We ♥ Open Source
+          </span>
+          <h2 class="mt-4 text-3xl font-extrabold">Proyek Open Source — MIT License</h2>
+          <p class="mt-2 text-slate-600">Lihat kode sumber, beri bintang, dan ikut berkontribusi untuk TaskFish.</p>
+          <div class="mt-6 flex flex-wrap gap-3">
+            <a href="https://github.com/username/taskfish" class="px-5 py-3 rounded-xl bg-secondary text-white font-semibold hover:opacity-90"><i class="fa-brands fa-github mr-2"></i>Buka di GitHub</a>
+            <a href="#" class="px-5 py-3 rounded-xl border border-slate-200 hover:border-secondary hover:text-secondary font-semibold"><i class="fa-solid fa-road mr-2"></i>Lihat Roadmap</a>
+            <a href="#" class="px-5 py-3 rounded-xl border border-slate-200 hover:border-primary hover:text-primary font-semibold"><i class="fa-solid fa-book mr-2"></i>Dokumentasi</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Testimoni -->
+    <section id="testimoni" class="py-16 md:py-20 bg-slate-50">
+      <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <h2 class="text-3xl font-extrabold">Apa kata mereka</h2>
+        <div class="mt-10 grid md:grid-cols-3 gap-6">
+          <figure class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div class="text-accent text-xl"><i class="fa-solid fa-quote-left"></i></div>
+            <blockquote class="mt-2 text-slate-700">“TaskFish bikin kuliah & finansialku lebih teratur!”</blockquote>
+            <figcaption class="mt-3 text-sm text-slate-500">Dila — Mahasiswa</figcaption>
+          </figure>
+          <figure class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div class="text-accent text-xl"><i class="fa-solid fa-quote-left"></i></div>
+            <blockquote class="mt-2 text-slate-700">“Checklist & cashflow jadi satu, mantap.”</blockquote>
+            <figcaption class="mt-3 text-sm text-slate-500">Andra — Freelancer</figcaption>
+          </figure>
+          <figure class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div class="text-accent text-xl"><i class="fa-solid fa-quote-left"></i></div>
+            <blockquote class="mt-2 text-slate-700">“Tim kecil kami pakai untuk planning harian.”</blockquote>
+            <figcaption class="mt-3 text-sm text-slate-500">Rani — UMKM</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <!-- FAQ -->
+    <section id="faq" class="py-16 md:py-20">
+      <div class="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
+        <h2 class="text-3xl font-extrabold">FAQ</h2>
+        <div class="mt-6 space-y-3">
+          <details class="rounded-xl border border-slate-200 p-4 bg-white">
+            <summary class="cursor-pointer font-semibold">Apakah TaskFish gratis?</summary>
+            <p class="mt-2 text-slate-600">Ya, open source dengan lisensi MIT. Kamu bisa pakai gratis.</p>
+          </details>
+          <details class="rounded-xl border border-slate-200 p-4 bg-white">
+            <summary class="cursor-pointer font-semibold">Data saya aman?</summary>
+            <p class="mt-2 text-slate-600">Kami menyarankan login aman & backup. Penyimpanan bergantung server yang kamu gunakan.</p>
+          </details>
+          <details class="rounded-xl border border-slate-200 p-4 bg-white">
+            <summary class="cursor-pointer font-semibold">Ada aplikasi mobile?</summary>
+            <p class="mt-2 text-slate-600">TaskFish fokus ke mobile‑first web. Aplikasi native menyusul.</p>
+          </details>
+          <details class="rounded-xl border border-slate-200 p-4 bg-white">
+            <summary class="cursor-pointer font-semibold">Bagaimana cara berkontribusi?</summary>
+            <p class="mt-2 text-slate-600">Buka repo GitHub kami, lihat CONTRIBUTING.md dan issue berlabel good‑first‑issue.</p>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <!-- CTA akhir -->
+    <section class="py-16 md:py-20 bg-primary">
+      <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 text-white">
+        <div class="grid md:grid-cols-2 gap-6 items-center">
+          <div>
+            <h2 class="text-3xl font-extrabold">Mulai atur hidupmu dengan TaskFish sekarang</h2>
+            <p class="mt-2 text-white/90">Catatan keuangan, kantong, dan to‑do list dalam satu tempat.</p>
+          </div>
+          <div class="flex md:justify-end gap-3">
+            <a href="#" class="px-5 py-3 rounded-xl bg-white text-slate-900 font-semibold hover:opacity-90"><i class="fa-solid fa-rocket mr-2"></i>Coba Gratis</a>
+            <a href="https://github.com/username/taskfish" class="px-5 py-3 rounded-xl border border-white/30 text-white font-semibold hover:bg-white/10"><i class="fa-brands fa-github mr-2"></i>Star di GitHub</a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Footer -->
+  <footer id="kontak" class="py-10 border-t border-slate-100">
+    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-3">
+      <div class="flex items-center gap-2">
+        <span class="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-white">🐟</span>
+        <span class="font-semibold">TaskFish</span>
+      </div>
+      <div class="text-sm text-slate-500">
+        © <span id="y"></span> TaskFish • MIT License
+      </div>
+      <div class="flex items-center gap-4 text-sm">
+        <a href="https://github.com/username/taskfish" class="hover:text-primary"><i class="fa-brands fa-github mr-1"></i>GitHub</a>
+        <a href="#" class="hover:text-primary"><i class="fa-solid fa-book mr-1"></i>Docs</a>
+        <a href="#" class="hover:text-primary"><i class="fa-solid fa-shield-halved mr-1"></i>Privacy</a>
+        <a href="#" class="hover:text-primary"><i class="fa-solid fa-scale-balanced mr-1"></i>Terms</a>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // tahun footer
+    document.getElementById('y').textContent = new Date().getFullYear();
+  </script>
+</body>
+</html>

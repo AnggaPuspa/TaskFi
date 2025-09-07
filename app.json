@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "rnr-base-bare",
-    "slug": "rnr-base-bare",
+    "name": "TaskFi",
+    "slug": "TaskFi",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",

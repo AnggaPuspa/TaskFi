@@ -9,6 +9,7 @@ import { DarkTheme, DefaultTheme } from '@react-navigation/native';
 import { NAV_THEME } from '~/lib/constants';
 import { useColorScheme } from '~/lib/useColorScheme';
 import { queryClient } from '~/utils/queryClient'; // Single source of truth
+import '~/i18n'; // Initialize i18n
 
 /**
  * Root Layout following industry standards

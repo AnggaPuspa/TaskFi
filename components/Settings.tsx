@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
-import { View, ScrollView, Alert, Linking, Platform, TouchableOpacity, Pressable } from 'react-native'
+import { View, ScrollView, Alert, Linking, Platform, TouchableOpacity, Pressable, Modal } from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
 import { Button } from './ui/button'
 import { Text } from './ui/text'
 import { Separator } from './ui/separator'
@@ -7,8 +8,15 @@ import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar'
 import { Mail } from '~/lib/icons/Mail'
 import { useAuth } from '~/features/auth/AuthProvider'
 import { useProfile } from '~/hooks/useProfile'
+import { useLanguage } from '~/hooks/useLanguage'
 import { ThemeToggle } from './ThemeToggle'
+import { queryClient } from '~/utils/queryClient'
 import * as ImagePicker from 'expo-image-picker'
+import * as ImageManipulator from 'expo-image-manipulator'
+import EditProfile from './settings/EditProfile'
+import NotificationSettings from './settings/NotificationSettings'
+import LanguageSettings from './settings/LanguageSettings'
+import SecuritySettings from './settings/SecuritySettings'
 import { 
   User, 
   Shield, 
@@ -22,13 +30,17 @@ import {
   ChevronRight,
   Camera,
   Moon,
-  Sun
+  Sun,
+  ArrowLeft,
+  AlertTriangle
 } from 'lucide-react-native'
 
 export default function Settings() {
     const { session, signOut } = useAuth()
     const { profile, loading, uploadAvatar: uploadAvatarHook } = useProfile()
+    const { t } = useLanguage()
     const [uploading, setUploading] = useState(false)
+    const [currentScreen, setCurrentScreen] = useState<'main' | 'profile' | 'notifications' | 'language' | 'security'>('main')
 
     const handlePermissions = async () => {
         // Check current permissions status
@@ -89,16 +101,25 @@ export default function Settings() {
         }
     }
 
-    const handleSignOut = () => {
+    const handleSignOut = async () => {
         Alert.alert(
-            'Sign Out',
-            'Are you sure you want to sign out of your account?',
+            t('signOut'),
+            t('signOutConfirm'),
             [
-                { text: 'Cancel', style: 'cancel' },
+                { text: t('cancel'), style: 'cancel' },
                 {
-                    text: 'Sign Out',
+                    text: t('signOut'),
                     style: 'destructive',
-                    onPress: () => signOut()
+                    onPress: async () => {
+                        const result = await signOut()
+                        if (result.success) {
+                            // Clear all cached data
+                            queryClient.clear()
+                            Alert.alert(t('success'), t('signOutSuccess'))
+                        } else {
+                            Alert.alert(t('error'), result.error || 'Gagal keluar dari akun')
+                        }
+                    }
                 }
             ]
         )
@@ -127,7 +148,7 @@ export default function Settings() {
             // Request permissions
             const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
             if (status !== 'granted') {
-                Alert.alert('Permission Required', 'We need camera roll permissions to upload your avatar.')
+                Alert.alert(t('permissionRequired'), t('permissionError'))
                 return
             }
 
@@ -148,17 +169,29 @@ export default function Settings() {
                 throw new Error('No image selected')
             }
 
+            // Crop and resize image
+            const manipulatedImage = await ImageManipulator.manipulateAsync(
+                image.uri,
+                [
+                    { resize: { width: 300, height: 300 } }
+                ],
+                {
+                    compress: 0.8,
+                    format: ImageManipulator.SaveFormat.JPEG,
+                }
+            )
+
             // Use the hook's upload function
-            const uploadResult = await uploadAvatarHook(image.uri)
+            const uploadResult = await uploadAvatarHook(manipulatedImage.uri)
             if (uploadResult.success) {
-                Alert.alert('Success', 'Avatar updated successfully!')
+                Alert.alert(t('success'), t('avatarUpdated'))
             } else if (uploadResult.error) {
-                Alert.alert('Upload Error', uploadResult.error)
+                Alert.alert(t('error'), uploadResult.error)
             }
 
         } catch (error) {
             if (error instanceof Error) {
-                Alert.alert('Upload Error', error.message)
+                Alert.alert(t('error'), error.message)
             }
         } finally {
             setUploading(false)
@@ -166,9 +199,9 @@ export default function Settings() {
     }
 
     const getAvatarFallback = () => {
-        const fullName = `${profile.name} ${profile.surname}`.trim()
-        if (fullName) {
-            return fullName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
+        const displayName = profile.display_name || `${profile.name} ${profile.surname}`.trim()
+        if (displayName) {
+            return displayName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
         }
         if (profile.username) {
             return profile.username.slice(0, 2).toUpperCase()
@@ -176,12 +209,73 @@ export default function Settings() {
         return session?.user?.email?.slice(0, 2).toUpperCase() || 'U'
     }
 
+    // Render different screens based on currentScreen
+    const renderHeader = () => (
+        <View className="flex-row items-center mb-6 px-4 pt-2">
+            {currentScreen !== 'main' && (
+                <TouchableOpacity 
+                    onPress={() => setCurrentScreen('main')}
+                    className="mr-3 p-3 -ml-1 rounded-full"
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                    <ArrowLeft size={24} className="text-foreground" />
+                </TouchableOpacity>
+            )}
+            <Text className="text-2xl font-bold text-foreground">
+                {currentScreen === 'main' ? t('settings') : 
+                 currentScreen === 'profile' ? t('editProfile') :
+                 currentScreen === 'notifications' ? t('notifications') :
+                 currentScreen === 'language' ? t('language') :
+                 currentScreen === 'security' ? t('security') : t('settings')}
+            </Text>
+        </View>
+    )
+
+    if (currentScreen === 'profile') {
+        return (
+            <SafeAreaView className="flex-1 bg-background" edges={['top']}>
+                {renderHeader()}
+                <EditProfile />
+            </SafeAreaView>
+        )
+    }
+
+    if (currentScreen === 'notifications') {
+        return (
+            <SafeAreaView className="flex-1 bg-background" edges={['top']}>
+                {renderHeader()}
+                <NotificationSettings />
+            </SafeAreaView>
+        )
+    }
+
+    if (currentScreen === 'language') {
+        return (
+            <SafeAreaView className="flex-1 bg-background" edges={['top']}>
+                {renderHeader()}
+                <LanguageSettings />
+            </SafeAreaView>
+        )
+    }
+
+    if (currentScreen === 'security') {
+        return (
+            <SafeAreaView className="flex-1 bg-background" edges={['top']}>
+                {renderHeader()}
+                <SecuritySettings />
+            </SafeAreaView>
+        )
+    }
+
     return (
-        <ScrollView className="flex-1 bg-background px-4 pt-6 pb-2">
+        <SafeAreaView className="flex-1 bg-background" edges={['top']}>
+            <ScrollView className="flex-1 px-4 pt-2 pb-2">
+                {renderHeader()}
+
             {/* Profile Header */}
             <Pressable 
                 className="bg-card p-5 flex-row items-center rounded-lg mb-3"
-                onPress={handleUploadAvatar}
+                onPress={() => setCurrentScreen('profile')}
             >
                 <View className="relative mr-4">
                     <Avatar alt="Profile Picture" className="w-16 h-16">
@@ -198,7 +292,7 @@ export default function Settings() {
                 </View>
                 <View className="flex-1 pr-3">
                     <Text className="text-lg font-semibold text-foreground">
-                        {`${profile.name} ${profile.surname}`.trim() || profile.username || 'User'}
+                        {profile.display_name || `${profile.name} ${profile.surname}`.trim() || profile.username || 'User'}
                     </Text>
                     <View className="flex-row items-center mt-1">
                         <Mail size={14} className="text-muted-foreground mr-2" />
@@ -217,21 +311,21 @@ export default function Settings() {
                 {/* Account Section */}
                 <View className="px-4 py-4">
                     <Text className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
-                        Account
+                        {t('profile')}
                     </Text>
                 </View>
 
                 <TouchableOpacity 
                     className="flex-row items-center px-4 py-5 border-b border-border"
-                    onPress={handlePermissions}
+                    onPress={() => setCurrentScreen('security')}
                 >
                     <View className="flex-row items-center flex-1">
                         <View className="w-10 h-10 bg-muted rounded-full items-center justify-center mr-4">
-                            <Lock size={20} className="text-muted-foreground" />
+                            <Shield size={20} className="text-muted-foreground" />
                         </View>
                         <View className="flex-1 pr-3">
-                            <Text className="text-base font-medium text-foreground">Permissions</Text>
-                            <Text className="text-sm text-muted-foreground mt-0.5">Manage app permissions</Text>
+                            <Text className="text-base font-medium text-foreground">{t('security')}</Text>
+                            <Text className="text-sm text-muted-foreground mt-0.5">App lock and biometric settings</Text>
                         </View>
                     </View>
                     <View className="pl-2">
@@ -241,15 +335,15 @@ export default function Settings() {
 
                 <TouchableOpacity 
                     className="flex-row items-center px-4 py-5 border-b border-border"
-                    onPress={() => {}}
+                    onPress={() => setCurrentScreen('notifications')}
                 >
                     <View className="flex-row items-center flex-1">
                         <View className="w-10 h-10 bg-muted rounded-full items-center justify-center mr-4">
                             <Bell size={20} className="text-muted-foreground" />
                         </View>
                         <View className="flex-1 pr-3">
-                            <Text className="text-base font-medium text-foreground">Notifications</Text>
-                            <Text className="text-sm text-muted-foreground mt-0.5">Notification preferences</Text>
+                            <Text className="text-base font-medium text-foreground">{t('notifications')}</Text>
+                            <Text className="text-sm text-muted-foreground mt-0.5">Reminder preferences</Text>
                         </View>
                     </View>
                     <View className="pl-2">
@@ -259,14 +353,14 @@ export default function Settings() {
 
                 <TouchableOpacity 
                     className="flex-row items-center px-4 py-5"
-                    onPress={() => {}}
+                    onPress={() => setCurrentScreen('language')}
                 >
                     <View className="flex-row items-center flex-1">
                         <View className="w-10 h-10 bg-muted rounded-full items-center justify-center mr-4">
                             <Globe size={20} className="text-muted-foreground" />
                         </View>
                         <View className="flex-1 pr-3">
-                            <Text className="text-base font-medium text-foreground">Language</Text>
+                            <Text className="text-base font-medium text-foreground">{t('language')}</Text>
                             <Text className="text-sm text-muted-foreground mt-0.5">App language settings</Text>
                         </View>
                     </View>
@@ -284,12 +378,13 @@ export default function Settings() {
                     onPress={handleSignOut}
                 >
                     <LogOut size={20} className="text-destructive-foreground mr-3" />
-                    <Text className="text-base font-medium text-destructive-foreground">Sign Out</Text>
+                    <Text className="text-base font-medium text-destructive-foreground">{t('signOut')}</Text>
                 </TouchableOpacity>
             </View>
 
             {/* Bottom spacing */}
             <View className="h-6" />
-        </ScrollView>
+            </ScrollView>
+        </SafeAreaView>
     )
 }
