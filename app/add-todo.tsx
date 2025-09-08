@@ -1,33 +1,36 @@
 import React, { useState, useEffect } from 'react';
-import { View, ScrollView, Alert, KeyboardAvoidingView, Platform, TouchableOpacity } from 'react-native';
+import { 
+  View, 
+  ScrollView, 
+  Alert, 
+  KeyboardAvoidingView, 
+  Platform, 
+  TouchableOpacity,
+  StatusBar 
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
-import { Save, Trash2, Plus, X, Flag, AlertCircle, Zap } from 'lucide-react-native';
+import { 
+  Save, 
+  Trash2, 
+  ArrowLeft, 
+  Flag, 
+  AlertTriangle, 
+  Zap,
+  Calendar
+} from 'lucide-react-native';
 
 import { Text } from '~/components/ui/text';
 import { Button } from '~/components/ui/button';
 import { Input } from '~/components/ui/input';
 import { Textarea } from '~/components/ui/textarea';
-import { 
-  Header, 
-  FormField, 
-  CustomDateTimePicker,
-  LoadingOverlay 
-} from '~/src/shared/ui';
-import { PriorityBadge } from '~/src/shared/components';
 import { useTodos } from '~/src/hooks';
-
-import { Priority, TodoFormData, Todo } from '~/src/types';
-import { useThemeColor } from '~/hooks/useThemeColor';
+import { Priority, TodoFormData } from '~/src/types';
 import { useAuth } from '~/features/auth/AuthProvider';
 
 export default function AddTodoScreen() {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
-  const backgroundColor = useThemeColor({}, 'background');
-  const destructiveColor = useThemeColor({}, 'destructive');
-  const borderColor = useThemeColor({}, 'border');
-  const mutedColor = useThemeColor({}, 'muted-foreground');
   const { session } = useAuth();
   const { 
     rows: todos, 
@@ -41,6 +44,7 @@ export default function AddTodoScreen() {
   const isEditing = !!todoId;
 
   const [loading, setLoading] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [formData, setFormData] = useState<TodoFormData>({
     title: '',
     description: '',
@@ -48,9 +52,6 @@ export default function AddTodoScreen() {
     due: undefined,
     tags: [],
   });
-
-  const [errors, setErrors] = useState<Partial<TodoFormData>>({});
-  const [newTag, setNewTag] = useState('');
 
   // Load todo data for editing
   useEffect(() => {
@@ -64,26 +65,20 @@ export default function AddTodoScreen() {
           due: todo.due ? new Date(todo.due) : undefined,
           tags: todo.tags || [],
         });
+        // Show advanced if editing and has optional fields
+        if (todo.due || todo.description || (todo.tags && todo.tags.length > 0)) {
+          setShowAdvanced(true);
+        }
       }
     }
   }, [isEditing, todoId, todos]);
 
-  const validateForm = (): boolean => {
-    const newErrors: Partial<TodoFormData> = {};
-
-    if (!formData.title.trim()) newErrors.title = 'Judul tugas tidak boleh kosong' as any;
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
   const handleSave = async () => {
-    if (!validateForm()) {
-      Alert.alert('Form Tidak Valid', 'Mohon lengkapi semua field yang diperlukan.');
+    if (!formData.title.trim()) {
+      Alert.alert('Error', 'Judul tugas tidak boleh kosong');
       return;
     }
 
-    // Prevent double submission
     if (loading) return;
 
     setLoading(true);
@@ -98,8 +93,6 @@ export default function AddTodoScreen() {
         done: false,
       };
 
-      console.log('💾 Saving todo:', { isEditing, todoData });
-
       if (isEditing) {
         await updateTodo(todoId, todoData);
         Alert.alert('Berhasil!', 'Tugas berhasil diperbarui.');
@@ -108,16 +101,9 @@ export default function AddTodoScreen() {
         Alert.alert('Berhasil!', 'Tugas berhasil disimpan.');
       }
 
-      // Navigate back after successful save
-      // Use replace to ensure the todos screen refreshes
-      if (router.canGoBack()) {
-        router.back();
-      } else {
-        router.replace('/(app)/(tabs)/todos');
-      }
+      router.back();
     } catch (error: any) {
-      console.error('❌ Error saving todo:', error);
-      Alert.alert('Error', `Gagal ${isEditing ? 'memperbarui' : 'menyimpan'} tugas: ${error.message || 'Silakan coba lagi.'}`);
+      Alert.alert('Error', `Gagal ${isEditing ? 'memperbarui' : 'menyimpan'} tugas`);
     } finally {
       setLoading(false);
     }
@@ -128,25 +114,22 @@ export default function AddTodoScreen() {
 
     Alert.alert(
       'Hapus Tugas',
-      'Apakah Anda yakin ingin menghapus tugas ini? Tindakan ini tidak dapat dibatalkan.',
+      'Apakah Anda yakin ingin menghapus tugas ini?',
       [
         { text: 'Batal', style: 'cancel' },
         {
           text: 'Hapus',
           style: 'destructive',
           onPress: async () => {
-            // Prevent double deletion
             if (loading) return;
             
             setLoading(true);
             try {
-              console.log('🗑️ Deleting todo:', todoId);
               await deleteTodo(todoId);
               Alert.alert('Berhasil!', 'Tugas berhasil dihapus.');
               router.back();
             } catch (error: any) {
-              console.error('❌ Error deleting todo:', error);
-              Alert.alert('Error', `Gagal menghapus tugas: ${error.message || 'Silakan coba lagi.'}`);
+              Alert.alert('Error', 'Gagal menghapus tugas');
             } finally {
               setLoading(false);
             }
@@ -156,196 +139,230 @@ export default function AddTodoScreen() {
     );
   };
 
-  const handlePriorityChange = (priority: Priority) => {
-    setFormData(prev => ({ ...prev, priority }));
-  };
-
-  const handleAddTag = () => {
-    const tag = newTag.trim().toLowerCase();
-    if (tag && !formData.tags?.includes(tag)) {
-      setFormData(prev => ({
-        ...prev,
-        tags: [...(prev.tags || []), tag],
-      }));
-      setNewTag('');
+  const formatDate = (date: Date) => {
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
+    
+    if (date.toDateString() === today.toDateString()) {
+      return 'Hari Ini';
+    } else if (date.toDateString() === tomorrow.toDateString()) {
+      return 'Besok';
+    } else {
+      return date.toLocaleDateString('id-ID', {
+        weekday: 'short',
+        day: '2-digit',
+        month: 'short'
+      });
     }
   };
 
-  const handleRemoveTag = (tagToRemove: string) => {
-    setFormData(prev => ({
-      ...prev,
-      tags: prev.tags?.filter(tag => tag !== tagToRemove) || [],
-    }));
-  };
-
-  const priorityOptions: { priority: Priority; icon: any; color: string; label: string }[] = [
-    { priority: 'low', icon: Flag, color: '#6B7280', label: 'Rendah' },
-    { priority: 'medium', icon: AlertCircle, color: '#F59E0B', label: 'Sedang' },
-    { priority: 'high', icon: Zap, color: '#EF4444', label: 'Tinggi' },
+  const priorityOptions = [
+    { priority: 'low' as Priority, label: 'Rendah', icon: Flag, color: '#10B981' },
+    { priority: 'medium' as Priority, label: 'Sedang', icon: Zap, color: '#F59E0B' },
+    { priority: 'high' as Priority, label: 'Tinggi', icon: AlertTriangle, color: '#EF4444' },
   ];
 
   return (
-    <KeyboardAvoidingView 
-      className="flex-1" 
-      style={{ backgroundColor }}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <Header 
-        title={isEditing ? 'Edit Tugas' : 'Tambah Tugas'}
-        showBackButton
-        onBackPress={() => router.back()}
-        rightActions={
-          isEditing ? (
-            <Button
-              variant="ghost"
-              onPress={handleDelete}
-              className="p-2"
-              accessibilityLabel="Delete task"
-            >
-              <Trash2 size={20} color={destructiveColor} />
-            </Button>
-          ) : undefined
-        }
-      />
-
-      <ScrollView 
-        className="flex-1"
-        contentContainerStyle={{ 
-          paddingBottom: insets.bottom + 100,
-          flexGrow: 1,
-        }}
-        keyboardShouldPersistTaps="handled"
+    <View className="flex-1 bg-gray-50 dark:bg-gray-900">
+      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+      
+      {/* Header */}
+      <View 
+        className="bg-white dark:bg-gray-800 px-6 pb-4 border-b border-gray-100 dark:border-gray-700"
+        style={{ paddingTop: insets.top + 16 }}
       >
-        <View className="p-4 gap-6">
-          {/* Title */}
-          <FormField 
-            label="Judul Tugas" 
-            required
-            error={errors.title}
+        <View className="flex-row items-center justify-between">
+          <TouchableOpacity
+            onPress={() => router.back()}
+            className="w-10 h-10 bg-gray-100 dark:bg-gray-700 rounded-full items-center justify-center"
           >
-            <Input
-              value={formData.title}
-              onChangeText={(title) => {
-                setFormData(prev => ({ ...prev, title }));
-                if (errors.title) {
-                  setErrors(prev => ({ ...prev, title: undefined }));
-                }
-              }}
-              placeholder="Masukkan judul tugas"
-              returnKeyType="next"
-            />
-          </FormField>
+            <ArrowLeft size={20} color="#6B7280" />
+          </TouchableOpacity>
+          
+          <Text className="text-lg font-semibold text-gray-900 dark:text-white">
+            {isEditing ? 'Edit Tugas' : 'Tambah Tugas'}
+          </Text>
+          
+          {isEditing && (
+            <TouchableOpacity
+              onPress={handleDelete}
+              className="w-10 h-10 bg-red-50 dark:bg-red-900/20 rounded-full items-center justify-center"
+            >
+              <Trash2 size={18} color="#EF4444" />
+            </TouchableOpacity>
+          )}
+          
+          {!isEditing && <View className="w-10" />}
+        </View>
+      </View>
 
-          {/* Description */}
-          <FormField label="Deskripsi">
-            <Textarea
-              value={formData.description}
-              onChangeText={(description) => setFormData(prev => ({ ...prev, description }))}
-              placeholder="Tambahkan detail lebih lanjut tentang tugas ini..."
-              numberOfLines={3}
-              className="min-h-20"
-            />
-          </FormField>
-
-          {/* Priority */}
-          <FormField label="Prioritas">
-            <View className="flex-row gap-3">
-              {priorityOptions.map(({ priority, icon: Icon, color, label }) => {
-                const isSelected = formData.priority === priority;
-                return (
-                  <TouchableOpacity
-                    key={priority}
-                    onPress={() => handlePriorityChange(priority)}
-                    className={`flex-1 p-3 rounded-lg border ${
-                      isSelected ? 'border-primary bg-primary/10' : 'border-border bg-card'
-                    }`}
-                    style={{
-                      borderColor: isSelected ? color : borderColor,
-                    }}
-                  >
-                    <View className="items-center">
-                      <Icon size={20} color={color} />
-                      <Text className="text-sm mt-1" style={{ color: isSelected ? color : mutedColor }}>
-                        {label}
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
+      <KeyboardAvoidingView 
+        className="flex-1"
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <ScrollView 
+          className="flex-1"
+          contentContainerStyle={{ paddingBottom: 120 }}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View className="p-6 gap-6">
+            {/* Main Input */}
+            <View className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm">
+              <Text className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                Apa yang ingin Anda kerjakan?
+              </Text>
+              
+              <Input
+                value={formData.title}
+                onChangeText={(title) => setFormData(prev => ({ ...prev, title }))}
+                placeholder="Misalnya: Belajar React Native"
+                className="text-lg border-0 bg-gray-50 dark:bg-gray-700 rounded-xl"
+                multiline
+                style={{ minHeight: 60 }}
+              />
             </View>
-          </FormField>
 
-          {/* Due Date */}
-          <FormField label="Tanggal Deadline">
-            <CustomDateTimePicker
-              value={formData.due || new Date()}
-              onChange={(date) => setFormData(prev => ({ ...prev, due: date || undefined }))}
-              placeholder="Pilih tanggal deadline"
-              mode="datetime"
-              minimumDate={new Date()}
-            />
-          </FormField>
-
-          {/* Tags */}
-          <FormField label="Tag">
-            <View className="gap-3">
-              {/* Add new tag */}
-              <View className="flex-row gap-2">
-                <Input
-                  value={newTag}
-                  onChangeText={setNewTag}
-                  placeholder="Tambahkan tag"
-                  className="flex-1"
-                  returnKeyType="done"
-                  onSubmitEditing={handleAddTag}
-                />
-                <Button
-                  onPress={handleAddTag}
-                  variant="outline"
-                  className="h-12 px-3"
-                  disabled={!newTag.trim()}
-                >
-                  <Plus size={16} />
-                </Button>
-              </View>
-
-              {/* Display existing tags */}
-              {formData.tags && formData.tags.length > 0 && (
-                <View className="flex-row flex-wrap gap-2">
-                  {formData.tags.map((tag, index) => (
-                    <View
-                      key={index}
-                      className="flex-row items-center bg-secondary rounded-full px-3 py-1"
+            {/* Priority Selection */}
+            <View className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm">
+              <Text className="text-base font-semibold text-gray-900 dark:text-white mb-4">
+                Seberapa penting?
+              </Text>
+              
+              <View className="flex-row gap-3">
+                {priorityOptions.map(({ priority, label, icon: Icon, color }) => {
+                  const isSelected = formData.priority === priority;
+                  return (
+                    <TouchableOpacity
+                      key={priority}
+                      onPress={() => setFormData(prev => ({ ...prev, priority }))}
+                      className={`flex-1 p-4 rounded-xl border-2 ${
+                        isSelected ? 'border-opacity-100' : 'border-gray-200 dark:border-gray-700'
+                      }`}
+                      style={{
+                        borderColor: isSelected ? color : undefined,
+                        backgroundColor: isSelected ? color + '10' : undefined,
+                      }}
                     >
-                      <Text className="text-sm mr-1">#{tag}</Text>
-                      <TouchableOpacity
-                        onPress={() => handleRemoveTag(tag)}
-                        className="p-1"
-                      >
-                        <X size={12} color={mutedColor} />
-                      </TouchableOpacity>
-                    </View>
-                  ))}
+                      <View className="items-center">
+                        <Icon size={24} color={color} />
+                        <Text 
+                          className={`text-sm mt-2 font-medium ${
+                            isSelected ? 'text-gray-900 dark:text-white' : 'text-gray-600 dark:text-gray-400'
+                          }`}
+                        >
+                          {label}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+
+            {/* Optional Fields Toggle */}
+            <TouchableOpacity
+              onPress={() => setShowAdvanced(!showAdvanced)}
+              className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm"
+            >
+              <View className="flex-row items-center justify-between">
+                <Text className="text-base font-medium text-gray-900 dark:text-white">
+                  Pengaturan Tambahan
+                </Text>
+                <Text className="text-sm text-blue-600">
+                  {showAdvanced ? 'Sembunyikan' : 'Tampilkan'}
+                </Text>
+              </View>
+              
+              {formData.due && (
+                <View className="flex-row items-center mt-2">
+                  <Calendar size={16} color="#6B7280" />
+                  <Text className="text-sm text-gray-600 dark:text-gray-400 ml-2">
+                    Deadline: {formatDate(formData.due)}
+                  </Text>
                 </View>
               )}
-            </View>
-          </FormField>
-        </View>
-      </ScrollView>
+            </TouchableOpacity>
 
-      {/* Footer with Save Button */}
-      <View 
-        className="p-4 border-t border-border bg-card"
-        style={{ paddingBottom: insets.bottom + 16 }}
-      >
-        <Button
-          onPress={handleSave}
-          disabled={loading || isLoading || !formData.title.trim()}
-          className="h-12"
+            {/* Advanced Fields */}
+            {showAdvanced && (
+              <View className="gap-4">
+                {/* Due Date */}
+                <View className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm">
+                  <Text className="text-base font-semibold text-gray-900 dark:text-white mb-4">
+                    Kapan deadline?
+                  </Text>
+                  
+                  <View className="flex-row gap-3">
+                    {[
+                      { label: 'Hari Ini', date: new Date() },
+                      { label: 'Besok', date: (() => { const d = new Date(); d.setDate(d.getDate() + 1); return d; })() },
+                      { label: 'Minggu Depan', date: (() => { const d = new Date(); d.setDate(d.getDate() + 7); return d; })() },
+                    ].map(({ label, date }) => (
+                      <TouchableOpacity
+                        key={label}
+                        onPress={() => setFormData(prev => ({ ...prev, due: date }))}
+                        className={`flex-1 p-3 rounded-xl border ${
+                          formData.due?.toDateString() === date.toDateString()
+                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                            : 'border-gray-200 dark:border-gray-700'
+                        }`}
+                      >
+                        <Text className={`text-sm text-center font-medium ${
+                          formData.due?.toDateString() === date.toDateString()
+                            ? 'text-blue-600'
+                            : 'text-gray-600 dark:text-gray-400'
+                        }`}>
+                          {label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                  
+                  {formData.due && (
+                    <TouchableOpacity
+                      onPress={() => setFormData(prev => ({ ...prev, due: undefined }))}
+                      className="mt-3 p-2 rounded-lg bg-gray-100 dark:bg-gray-700"
+                    >
+                      <Text className="text-sm text-gray-600 dark:text-gray-400 text-center">
+                        Hapus Deadline
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                {/* Description */}
+                <View className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm">
+                  <Text className="text-base font-semibold text-gray-900 dark:text-white mb-4">
+                    Catatan tambahan
+                  </Text>
+                  
+                  <Textarea
+                    value={formData.description}
+                    onChangeText={(description) => setFormData(prev => ({ ...prev, description }))}
+                    placeholder="Tambahkan detail, catatan, atau hal-hal yang perlu diingat..."
+                    numberOfLines={3}
+                    className="border-0 bg-gray-50 dark:bg-gray-700 rounded-xl"
+                  />
+                </View>
+              </View>
+            )}
+          </View>
+        </ScrollView>
+
+        {/* Save Button */}
+        <View 
+          className="absolute bottom-0 left-0 right-0 bg-white dark:bg-gray-800 p-6 border-t border-gray-100 dark:border-gray-700"
+          style={{ paddingBottom: insets.bottom + 24 }}
         >
-          <View className="flex-row items-center">
+          <Button
+            onPress={handleSave}
+            disabled={loading || !formData.title.trim()}
+            className="h-14 bg-blue-600 rounded-2xl flex-row items-center justify-center"
+          >
             <Save size={20} color="white" />
-            <Text className="text-white font-medium ml-2">
+            <Text className="text-white font-semibold ml-2 text-base">
               {loading 
                 ? 'Menyimpan...' 
                 : isEditing 
@@ -353,11 +370,9 @@ export default function AddTodoScreen() {
                   : 'Simpan Tugas'
               }
             </Text>
-          </View>
-        </Button>
-      </View>
-
-      {loading && <LoadingOverlay visible={loading} />}
-    </KeyboardAvoidingView>
+          </Button>
+        </View>
+      </KeyboardAvoidingView>
+    </View>
   );
 }

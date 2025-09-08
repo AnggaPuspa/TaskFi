@@ -70,7 +70,8 @@
     "tailwind-merge": "^2.2.1",
     "tailwindcss": "3.3.5",
     "tailwindcss-animate": "^1.0.7",
-    "expo-notifications": "~0.31.4"
+    "expo-notifications": "~0.31.4",
+    "expo-camera": "~16.1.11"
   },
   "devDependencies": {
     "@babel/core": "^7.26.0",

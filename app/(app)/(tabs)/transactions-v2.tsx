@@ -55,69 +55,55 @@ const ModernTransactionCard: React.FC<TransactionCardProps> = ({
   return (
     <TouchableOpacity 
       onPress={onPress}
-      className="mx-6 mb-4 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden"
-      activeOpacity={0.8}
+      className="mx-4 mb-3 p-4 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700"
+      activeOpacity={0.7}
     >
-      {/* Card Content */}
-      <View className="p-5">
-        <View className="flex-row items-center justify-between">
-          <View className="flex-row items-center flex-1">
-            {/* Category Icon */}
-            <View className={`w-14 h-14 rounded-2xl items-center justify-center mr-4 ${
-              isIncome ? 'bg-green-50 dark:bg-green-900/20' : 'bg-red-50 dark:bg-red-900/20'
-            }`}>
-              {isIncome ? (
-                <ArrowUpRight size={24} color="#10B981" />
-              ) : (
-                <ArrowDownLeft size={24} color="#EF4444" />
-              )}
-            </View>
-
-            {/* Transaction Info */}
-            <View className="flex-1">
-              <Text className="font-semibold text-lg text-gray-900 dark:text-white mb-1">
-                {transaction.title}
-              </Text>
-              <View className="flex-row items-center">
-                <Text className="text-sm text-gray-500 dark:text-gray-400">
-                  {transaction.category}
-                </Text>
-                <View className="w-1 h-1 bg-gray-400 rounded-full mx-2" />
-                <Text className="text-sm text-gray-500 dark:text-gray-400">
-                  {new Date(transaction.date).toLocaleDateString('id-ID', {
-                    day: '2-digit',
-                    month: 'short'
-                  })}
-                </Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Amount */}
-          <View className="items-end">
-            <Text className={`font-bold text-xl ${
-              isIncome ? 'text-green-600' : 'text-red-600'
-            }`}>
-              {isIncome ? '+' : ''}{formatIDR(transaction.amount)}
-            </Text>
-            {transaction.wallet && (
-              <Text className="text-xs text-gray-400 mt-1">
-                {transaction.wallet}
-              </Text>
+      <View className="flex-row items-center justify-between">
+        <View className="flex-row items-center flex-1">
+          {/* Category Icon */}
+          <View className={`w-12 h-12 rounded-xl items-center justify-center mr-4 ${
+            isIncome ? 'bg-green-100 dark:bg-green-900/30' : 'bg-red-100 dark:bg-red-900/30'
+          }`}>
+            {isIncome ? (
+              <ArrowUpRight size={20} color={isIncome ? '#10B981' : '#EF4444'} />
+            ) : (
+              <ArrowDownLeft size={20} color={isIncome ? '#10B981' : '#EF4444'} />
             )}
           </View>
+
+          {/* Transaction Info */}
+          <View className="flex-1">
+            <Text className="font-semibold text-base text-gray-900 dark:text-white">
+              {transaction.title}
+            </Text>
+            <Text className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              {transaction.category} • {new Date(transaction.date).toLocaleDateString('id-ID', {
+                day: 'numeric',
+                month: 'short'
+              })}
+            </Text>
+          </View>
+        </View>
+
+        {/* Amount */}
+        <View className="items-end">
+          <Text className={`font-bold text-lg ${
+            isIncome ? 'text-green-600' : 'text-red-600'
+          }`}>
+            {isIncome ? '+' : '-'}{formatIDR(transaction.amount)}
+          </Text>
+          {transaction.wallet && (
+            <Text className="text-xs text-gray-400 mt-1">
+              {transaction.wallet}
+            </Text>
+          )}
         </View>
       </View>
-      
-      {/* Subtle bottom accent */}
-      <View className={`h-1 ${
-        isIncome ? 'bg-green-100 dark:bg-green-900/30' : 'bg-red-100 dark:bg-red-900/30'
-      }`} />
     </TouchableOpacity>
   );
 };
 
-function TransactionsScreen() {
+function TransactionsScreenV2() {
   const insets = useSafeAreaInsets();
   const backgroundColor = useThemeColor({}, 'background');
   
@@ -570,4 +556,4 @@ function TransactionsScreen() {
   );
 }
 
-export default withAuth(TransactionsScreen);
+export default withAuth(TransactionsScreenV2);

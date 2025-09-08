@@ -1,318 +1,271 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { View, ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { 
-  Calendar, 
+  View, 
+  ScrollView, 
+  RefreshControl, 
+  TouchableOpacity, 
+  StatusBar,
+  Dimensions 
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
+import { 
+  BarChart3, 
   TrendingUp, 
-  TrendingDown, 
-  DollarSign, 
-  Target, 
-  ChevronDown 
+  CheckCircle, 
+  Activity,
+  Eye,
+  EyeOff,
+  PieChart,
+  Calendar
 } from 'lucide-react-native';
 
 import { formatIDR } from '~/utils/currency';
-
 import { Text } from '~/components/ui/text';
-import { Header } from '~/src/shared/ui';
-import { 
-  ChartCard, 
-  SimpleBarChart, 
-  SimplePieChart, 
-  StatsCard, 
-  BudgetProgress 
-} from '~/src/shared/components';
-
-import { mockCategories, getCategoriesByType } from '~/src/mocks';
 import { useTransactions } from '~/src/hooks';
+import { useTodos } from '~/src/hooks';
 import { useAuth } from '~/features/auth/AuthProvider';
-import { useThemeColor } from '~/hooks/useThemeColor';
 
-export default function ReportsScreen() {
-  // ✅ ALL HOOKS MUST BE CALLED AT THE TOP LEVEL - BEFORE ANY CONDITIONAL RETURNS
+export default function StatisticsScreen() {
   const insets = useSafeAreaInsets();
-  const backgroundColor = useThemeColor({}, 'background');
-  const mutedForegroundColor = useThemeColor({}, 'muted-foreground');
-  const successColor = useThemeColor({}, 'success');
-  const destructiveColor = useThemeColor({}, 'destructive');
-  const warningColor = useThemeColor({}, 'warning');
-  const primaryColor = useThemeColor({}, 'primary');
-  
-  // ✅ Auth state
-  const { session, status } = useAuth();
+  const { session } = useAuth();
   const userId = session?.user?.id ?? null;
   
-  const { rows: transactions, loading: isLoading, error, refetch } = useTransactions({ 
+  const { rows: transactions, loading: isLoadingTransactions, refetch: refetchTransactions } = useTransactions({ 
+    enabled: !!userId, 
+    userId: userId || undefined 
+  });
+  
+  const { rows: todos, loading: isLoadingTodos, refetch: refetchTodos } = useTodos({ 
     enabled: !!userId, 
     userId: userId || undefined 
   });
   
   const [refreshing, setRefreshing] = useState(false);
-  const [selectedPeriod, setSelectedPeriod] = useState('This Month');
+  const [showAmount, setShowAmount] = useState(true);
 
-  const periods = ['This Month', 'Last Month', 'Last 3 Months', 'This Year'];
-
-  // Calculate financial data for the selected period
-  const financialData = useMemo(() => {
-    console.log('📊 Reports Debug:', {
-      transactionsCount: transactions.length,
-      selectedPeriod,
-      userId,
-      isLoading,
-      error,
-      sampleTransactions: transactions.slice(0, 3)
-    });
-
-    const now = new Date();
-    let startDate: Date;
-    
-    switch (selectedPeriod) {
-      case 'Last Month':
-        startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-        break;
-      case 'Last 3 Months':
-        startDate = new Date(now.getFullYear(), now.getMonth() - 3, 1);
-        break;
-      case 'This Year':
-        startDate = new Date(now.getFullYear(), 0, 1);
-        break;
-      default:
-        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-    }
-
-    console.log('📅 Date filter:', {
-      startDate: startDate.toISOString(),
-      now: now.toISOString(),
-      selectedPeriod
-    });
-
-    const periodTransactions = transactions.filter((t: any) => {
+  // Calculate user statistics
+  const userStats = useMemo(() => {
+    // Transaction stats
+    const totalTransactions = transactions.length;
+    const thisMonthTransactions = transactions.filter((t: any) => {
       const transactionDate = new Date(t.date);
-      const isInPeriod = transactionDate >= startDate;
-      console.log('🔍 Transaction filter:', {
-        title: t.title,
-        date: t.date,
-        transactionDate: transactionDate.toISOString(),
-        startDate: startDate.toISOString(),
-        isInPeriod
-      });
-      return isInPeriod;
+      const now = new Date();
+      return transactionDate.getMonth() === now.getMonth() && 
+             transactionDate.getFullYear() === now.getFullYear();
     });
 
-    console.log('✅ Filtered transactions:', {
-      total: periodTransactions.length,
-      income: periodTransactions.filter((t: any) => t.type === 'income').length,
-      expense: periodTransactions.filter((t: any) => t.type === 'expense').length
-    });
-
-    const income = periodTransactions
+    const totalIncome = transactions
       .filter((t: any) => t.type === 'income')
-      .reduce((sum: number, t: any) => sum + (typeof t.amount === 'number' ? t.amount : parseFloat(t.amount) || 0), 0);
-      
-    const expenses = periodTransactions
+      .reduce((sum: number, t: any) => sum + (parseFloat(t.amount) || 0), 0);
+    
+    const totalExpenses = transactions
       .filter((t: any) => t.type === 'expense')
-      .reduce((sum: number, t: any) => sum + (typeof t.amount === 'number' ? t.amount : parseFloat(t.amount) || 0), 0);
+      .reduce((sum: number, t: any) => sum + (parseFloat(t.amount) || 0), 0);
 
-    const netIncome = income - expenses;
-    const savingsRate = income > 0 ? ((netIncome / income) * 100) : 0;
+    // Todo stats
+    const totalTodos = todos.length;
+    const completedTodos = todos.filter((t: any) => t.done).length;
+    const pendingTodos = totalTodos - completedTodos;
+    const completionRate = totalTodos > 0 ? (completedTodos / totalTodos) * 100 : 0;
+
+    // This week todos
+    const thisWeekTodos = todos.filter((t: any) => {
+      const todoDate = new Date(t.created_at);
+      const now = new Date();
+      const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      return todoDate >= weekAgo;
+    });
 
     return {
-      income,
-      expenses,
-      netIncome,
-      savingsRate,
-      transactions: periodTransactions,
+      transactions: {
+        total: totalTransactions,
+        thisMonth: thisMonthTransactions.length,
+        totalIncome,
+        totalExpenses,
+        balance: totalIncome - totalExpenses
+      },
+      todos: {
+        total: totalTodos,
+        completed: completedTodos,
+        pending: pendingTodos,
+        completionRate,
+        thisWeek: thisWeekTodos.length
+      }
     };
-  }, [selectedPeriod, transactions]);
-
-  // Category breakdown for pie chart
-  const categoryBreakdown = useMemo(() => {
-    const categoryTotals: { [key: string]: number } = {};
-    
-    financialData.transactions
-      .filter((t: any) => t.type === 'expense')
-      .forEach((t: any) => {
-        categoryTotals[t.category] = (categoryTotals[t.category] || 0) + (typeof t.amount === 'number' ? t.amount : parseFloat(t.amount) || 0);
-      });
-
-    return Object.entries(categoryTotals)
-      .map(([categoryId, amount]) => {
-        const category = mockCategories.find(c => c.id === categoryId);
-        return {
-          label: category?.name || 'Other',
-          value: amount,
-          color: category?.color || '#6B7280',
-        };
-      })
-      .sort((a, b) => b.value - a.value)
-      .slice(0, 6); // Top 6 categories
-  }, [financialData.transactions]);
-
-  // Monthly trend data for bar chart
-  const monthlyTrend = useMemo(() => {
-    const monthlyData: { [key: string]: { income: number; expenses: number } } = {};
-    
-    financialData.transactions.forEach((t: any) => {
-      const monthKey = new Date(t.date).toLocaleDateString('en-US', { 
-        month: 'short' 
-      });
-      
-      if (!monthlyData[monthKey]) {
-        monthlyData[monthKey] = { income: 0, expenses: 0 };
-      }
-      
-      const amount = typeof t.amount === 'number' ? t.amount : parseFloat(t.amount) || 0;
-      
-      if (t.type === 'income') {
-        monthlyData[monthKey].income += amount;
-      } else {
-        monthlyData[monthKey].expenses += amount;
-      }
-    });
-
-    return Object.entries(monthlyData).map(([month, data]) => ({
-      label: month,
-      value: data.income - data.expenses,
-      color: data.income > data.expenses ? '#10B981' : '#EF4444',
-    }));
-  }, [financialData.transactions]);
-
-  // Budget progress data
-  const budgetData = useMemo(() => {
-    const categorySpending: { [key: string]: number } = {};
-    
-    financialData.transactions
-      .filter((t: any) => t.type === 'expense')
-      .forEach((t: any) => {
-        const amount = typeof t.amount === 'number' ? t.amount : parseFloat(t.amount) || 0;
-        categorySpending[t.category] = (categorySpending[t.category] || 0) + amount;
-      });
-
-    return getCategoriesByType('expense')
-      .filter(category => category.budget && categorySpending[category.id])
-      .map(category => ({
-        category,
-        spent: categorySpending[category.id] || 0,
-      }));
-  }, [financialData.transactions]);
+  }, [transactions, todos]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      await refetch();
+      await Promise.all([refetchTransactions(), refetchTodos()]);
     } catch (error) {
       console.error('Error refreshing data:', error);
     } finally {
       setRefreshing(false);
     }
-  }, [refetch]);
-  
-  // ✅ Load transactions when screen mounts (only once) - HOOK CALLED BEFORE CONDITIONALS
-  React.useEffect(() => {
-    // Data automatically loaded by useTransactions hook
-  }, []);
+  }, [refetchTransactions, refetchTodos]);
 
-  const formatCurrency = (amount: number) => {
+  const formatAmount = (amount: number) => {
+    if (!showAmount) return '••••••••';
     return formatIDR(amount);
   };
-  
-  // ✅ NOW SAFE TO HAVE CONDITIONAL RETURNS - ALL HOOKS CALLED ABOVE
-  
-  // Show loading state for auth
-  if (status === 'loading') {
+
+  // Simple Progress Bar Component
+  const ProgressBar = ({ percentage, color }: { percentage: number; color: string }) => (
+    <View className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+      <View 
+        className="h-full rounded-full" 
+        style={{ 
+          width: `${Math.min(percentage, 100)}%`,
+          backgroundColor: color 
+        }} 
+      />
+    </View>
+  );
+
+  // Simple Chart Bar Component
+  const ChartBar = ({ 
+    label, 
+    value, 
+    maxValue, 
+    color 
+  }: { 
+    label: string; 
+    value: number; 
+    maxValue: number; 
+    color: string; 
+  }) => {
+    const percentage = maxValue > 0 ? (value / maxValue) * 100 : 0;
+    
     return (
-      <View className="flex-1" style={{ backgroundColor }}>
-        <Header title="Reports" />
+      <View className="items-center flex-1">
+        <View className="w-8 bg-gray-200 dark:bg-gray-700 rounded-t-lg mb-2" style={{ height: 100 }}>
+          <View 
+            className="w-full rounded-t-lg" 
+            style={{ 
+              height: `${percentage}%`,
+              backgroundColor: color,
+              marginTop: 'auto'
+            }} 
+          />
+        </View>
+        <Text className="text-xs text-gray-600 dark:text-gray-400 text-center">
+          {label}
+        </Text>
+        <Text className="text-sm font-semibold text-gray-900 dark:text-white text-center">
+          {value}
+        </Text>
+      </View>
+    );
+  };
+
+  // Donut Chart Component
+  const DonutChart = ({ 
+    completed, 
+    total, 
+    size = 120 
+  }: { 
+    completed: number; 
+    total: number; 
+    size?: number; 
+  }) => {
+    const percentage = total > 0 ? (completed / total) * 100 : 0;
+    const radius = (size - 20) / 2;
+    const circumference = 2 * Math.PI * radius;
+    const strokeDasharray = circumference;
+    const strokeDashoffset = circumference - (percentage / 100) * circumference;
+
+    return (
+      <View className="items-center justify-center" style={{ width: size, height: size }}>
+        <View className="absolute">
+          <View 
+            className="rounded-full border-8 border-gray-200 dark:border-gray-700"
+            style={{ width: size - 20, height: size - 20 }}
+          />
+          <View 
+            className="absolute rounded-full border-8 border-green-500"
+            style={{ 
+              width: size - 20, 
+              height: size - 20,
+              transform: [{ rotate: '-90deg' }]
+            }}
+          />
+        </View>
+        <View className="items-center">
+          <Text className="text-2xl font-bold text-gray-900 dark:text-white">
+            {percentage.toFixed(0)}%
+          </Text>
+          <Text className="text-xs text-gray-600 dark:text-gray-400">
+            Selesai
+          </Text>
+        </View>
+      </View>
+    );
+  };
+
+  const isLoading = isLoadingTransactions || isLoadingTodos;
+
+  if (isLoading) {
+    return (
+      <View className="flex-1 bg-gray-50 dark:bg-gray-900">
+        <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
         <View className="flex-1 justify-center items-center">
-          <Text className="text-muted-foreground">Loading...</Text>
+          <Activity size={32} color="#6B7280" />
+          <Text className="text-gray-600 dark:text-gray-400 mt-2">Memuat statistik...</Text>
         </View>
       </View>
     );
   }
 
-  // Show unauthenticated state
-  if (status === 'unauthenticated' || !session?.user?.id) {
+  if (!userId) {
     return (
-      <View className="flex-1" style={{ backgroundColor }}>
-        <Header title="Reports" />
-        <View className="flex-1 justify-center items-center p-4">
-          <Text className="text-lg font-semibold mb-2">Please sign in</Text>
-          <Text className="text-muted-foreground text-center mb-4">
-            Sign in to view your financial reports.
+      <View className="flex-1 bg-gray-50 dark:bg-gray-900">
+        <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+        <View className="flex-1 justify-center items-center p-6">
+          <BarChart3 size={64} color="#9CA3AF" />
+          <Text className="text-lg font-semibold text-gray-900 dark:text-white mt-4 mb-2">
+            Silakan Masuk
           </Text>
-        </View>
-      </View>
-    );
-  }
-  
-  // Show loading state
-  if (isLoading) {
-    return (
-      <View className="flex-1" style={{ backgroundColor }}>
-        <Header title="Reports" />
-        <View className="flex-1 justify-center items-center">
-          <Text className="text-muted-foreground">Loading reports...</Text>
-        </View>
-      </View>
-    );
-  }
-  
-  // Show error state
-  if (error) {
-    return (
-      <View className="flex-1" style={{ backgroundColor }}>
-        <Header title="Reports" />
-        <View className="flex-1 justify-center items-center p-4">
-          <Text className="text-destructive mb-2">Error loading data</Text>
-          <Text className="text-muted-foreground text-center mb-4">{error}</Text>
-          <TouchableOpacity
-            className="bg-primary px-4 py-2 rounded-lg"
-            onPress={() => refetch()}
-          >
-            <Text className="text-primary-foreground">Try Again</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  }
-  
-  // Show empty state if no transactions (but only if we have loaded and there really are none)
-  if (!isLoading && transactions.length === 0) {
-    return (
-      <View className="flex-1" style={{ backgroundColor }}>
-        <Header title="Reports" />
-        <View className="flex-1 justify-center items-center p-4">
-          <Text className="text-lg font-semibold mb-2">No data available</Text>
-          <Text className="text-muted-foreground text-center mb-4">
-            Add some transactions to see your financial reports.
+          <Text className="text-gray-600 dark:text-gray-400 text-center">
+            Masuk untuk melihat statistik aktivitas Anda
           </Text>
-          <TouchableOpacity
-            className="bg-primary px-4 py-2 rounded-lg"
-            onPress={onRefresh}
-          >
-            <Text className="text-primary-foreground">Refresh</Text>
-          </TouchableOpacity>
         </View>
       </View>
     );
   }
 
   return (
-    <View className="flex-1" style={{ backgroundColor }}>
-      <Header 
-        title="Reports" 
-        rightActions={
+    <View className="flex-1 bg-gray-50 dark:bg-gray-900">
+      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+      
+      {/* Header */}
+      <View 
+        className="bg-white dark:bg-gray-800 px-6 pb-6 border-b border-gray-100 dark:border-gray-700"
+        style={{ paddingTop: insets.top + 16 }}
+      >
+        <View className="flex-row items-center justify-between">
+          <View>
+            <Text className="text-2xl font-bold text-gray-900 dark:text-white">
+              Statistik
+            </Text>
+            <Text className="text-gray-600 dark:text-gray-400 mt-1">
+              Ringkasan aktivitas Anda
+            </Text>
+          </View>
+          
           <TouchableOpacity
-            className="flex-row items-center px-3 py-1 rounded-lg border border-border"
-            onPress={() => {
-              // In a real app, this would open a period selection modal
-              console.log('Open period selector');
-            }}
+            onPress={() => setShowAmount(!showAmount)}
+            className="w-10 h-10 bg-gray-100 dark:bg-gray-700 rounded-full items-center justify-center"
           >
-            <Text className="text-sm mr-1">{selectedPeriod}</Text>
-            <ChevronDown size={16} color={mutedForegroundColor} />
+            {showAmount ? (
+              <Eye size={20} color="#6B7280" />
+            ) : (
+              <EyeOff size={20} color="#6B7280" />
+            )}
           </TouchableOpacity>
-        }
-      />
+        </View>
+      </View>
 
       <ScrollView
         className="flex-1"
@@ -320,173 +273,250 @@ export default function ReportsScreen() {
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
+        showsVerticalScrollIndicator={false}
       >
-        <View className="p-4 gap-6">
-          {/* Debug Info - Remove in production */}
-          {__DEV__ && (
-            <View className="bg-muted p-4 rounded-lg">
-              <Text className="text-sm font-semibold mb-2">Debug Info:</Text>
-              <Text className="text-xs">Total Transactions: {transactions.length}</Text>
-              <Text className="text-xs">Period Transactions: {financialData.transactions.length}</Text>
-              <Text className="text-xs">Income: {formatCurrency(financialData.income)}</Text>
-              <Text className="text-xs">Expenses: {formatCurrency(financialData.expenses)}</Text>
-              <Text className="text-xs">User ID: {userId}</Text>
-              <Text className="text-xs">Loading: {isLoading.toString()}</Text>
-              <Text className="text-xs">Error: {error || 'none'}</Text>
+        <View className="p-6 gap-6">
+          {/* Overview Summary - One Card Only */}
+          <LinearGradient
+            colors={['#3B82F6', '#1D4ED8']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            className="p-6 rounded-3xl shadow-lg"
+          >
+            <View className="flex-row items-center justify-between mb-4">
+              <View>
+                <Text className="text-white/80 text-sm font-medium">
+                  Total Aktivitas
+                </Text>
+                <Text className="text-white text-2xl font-bold">
+                  {userStats.transactions.total + userStats.todos.total}
+                </Text>
+                <Text className="text-white/70 text-xs">
+                  Transaksi & Tugas
+                </Text>
+              </View>
+              <View className="bg-white/20 p-3 rounded-2xl">
+                <Activity size={32} color="white" />
+              </View>
             </View>
-          )}
 
-          {/* Key Metrics */}
-          <View>
-            <Text className="text-lg font-semibold mb-3">Financial Overview</Text>
-            <View className="flex-row gap-3">
-              <View className="flex-1">
-                <StatsCard
-                  title="Total Income"
-                  value={formatCurrency(financialData.income)}
-                  subtitle={selectedPeriod}
-                  change={{
-                    value: "+8.2%",
-                    type: "increase",
-                    period: "vs previous"
-                  }}
-                  icon={TrendingUp}
-                  color={successColor}
-                />
+            <View className="flex-row justify-between">
+              <View className="items-center">
+                <Text className="text-white text-lg font-bold">
+                  {formatAmount(userStats.transactions.balance)}
+                </Text>
+                <Text className="text-white/70 text-xs">Saldo</Text>
               </View>
-              <View className="flex-1">
-                <StatsCard
-                  title="Total Expenses"
-                  value={formatCurrency(financialData.expenses)}
-                  subtitle={selectedPeriod}
-                  change={{
-                    value: "+3.1%",
-                    type: "increase",
-                    period: "vs previous"
-                  }}
-                  icon={TrendingDown}
-                  color={destructiveColor}
-                />
+              <View className="items-center">
+                <Text className="text-white text-lg font-bold">
+                  {userStats.todos.completionRate.toFixed(0)}%
+                </Text>
+                <Text className="text-white/70 text-xs">Produktivitas</Text>
               </View>
             </View>
+          </LinearGradient>
+
+          {/* Transaction Chart */}
+          <View className="bg-white dark:bg-gray-800 rounded-3xl p-6 shadow-sm">
+            <View className="flex-row items-center justify-between mb-6">
+              <View>
+                <Text className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Transaksi
+                </Text>
+                <Text className="text-gray-600 dark:text-gray-400 text-sm">
+                  Aktivitas keuangan
+                </Text>
+              </View>
+              <BarChart3 size={24} color="#3B82F6" />
+            </View>
+
+            <View className="flex-row justify-around mb-4">
+              <ChartBar
+                label="Total"
+                value={userStats.transactions.total}
+                maxValue={Math.max(userStats.transactions.total, userStats.transactions.thisMonth, 10)}
+                color="#3B82F6"
+              />
+              <ChartBar
+                label="Bulan Ini"
+                value={userStats.transactions.thisMonth}
+                maxValue={Math.max(userStats.transactions.total, userStats.transactions.thisMonth, 10)}
+                color="#10B981"
+              />
+              <ChartBar
+                label="Pemasukan"
+                value={Math.round(userStats.transactions.totalIncome / 100000)}
+                maxValue={Math.max(
+                  Math.round(userStats.transactions.totalIncome / 100000),
+                  Math.round(userStats.transactions.totalExpenses / 100000),
+                  1
+                )}
+                color="#10B981"
+              />
+              <ChartBar
+                label="Pengeluaran"
+                value={Math.round(userStats.transactions.totalExpenses / 100000)}
+                maxValue={Math.max(
+                  Math.round(userStats.transactions.totalIncome / 100000),
+                  Math.round(userStats.transactions.totalExpenses / 100000),
+                  1
+                )}
+                color="#EF4444"
+              />
+            </View>
+
+            <Text className="text-xs text-gray-500 dark:text-gray-400 text-center">
+              *Pemasukan & Pengeluaran dalam ratusan ribu
+            </Text>
           </View>
 
-          <View>
-            <View className="flex-row gap-3">
-              <View className="flex-1">
-                <StatsCard
-                  title="Net Income"
-                  value={formatCurrency(financialData.netIncome)}
-                  subtitle={financialData.netIncome >= 0 ? 'Surplus' : 'Deficit'}
-                  change={{
-                    value: financialData.netIncome >= 0 ? "+" + formatCurrency(financialData.netIncome) : formatCurrency(financialData.netIncome),
-                    type: financialData.netIncome >= 0 ? "increase" : "decrease",
-                  }}
-                  icon={DollarSign}
-                  color={financialData.netIncome >= 0 ? successColor : destructiveColor}
-                />
+          {/* Todo Progress Chart */}
+          <View className="bg-white dark:bg-gray-800 rounded-3xl p-6 shadow-sm">
+            <View className="flex-row items-center justify-between mb-6">
+              <View>
+                <Text className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Progress Tugas
+                </Text>
+                <Text className="text-gray-600 dark:text-gray-400 text-sm">
+                  Tingkat penyelesaian
+                </Text>
               </View>
-              <View className="flex-1">
-                <StatsCard
-                  title="Savings Rate"
-                  value={`${financialData.savingsRate.toFixed(1)}%`}
-                  subtitle="Of total income"
-                  change={{
-                    value: "Target: 20%",
-                    type: financialData.savingsRate >= 20 ? "increase" : "neutral",
-                  }}
-                  icon={Target}
-                  color={primaryColor}
-                />
-              </View>
+              <CheckCircle size={24} color="#10B981" />
             </View>
-          </View>
 
-          {/* Monthly Trend Chart */}
-          <ChartCard
-            title="Monthly Trend"
-            subtitle="Net income over time"
-            value={formatCurrency(monthlyTrend.reduce((sum, m) => sum + m.value, 0) / monthlyTrend.length)}
-            change="+12.5%"
-            changeType={financialData.netIncome >= 0 ? 'positive' : 'negative'}
-            chartType="bar"
-          >
-            <SimpleBarChart data={monthlyTrend} />
-          </ChartCard>
+            <View className="flex-row items-center justify-between">
+              <DonutChart 
+                completed={userStats.todos.completed}
+                total={userStats.todos.total}
+                size={120}
+              />
 
-          {/* Category Breakdown */}
-          <ChartCard
-            title="Expense Breakdown"
-            subtitle="Top spending categories"
-            value={formatCurrency(financialData.expenses)}
-            chartType="pie"
-          >
-            <SimplePieChart data={categoryBreakdown} />
-          </ChartCard>
-
-          {/* Budget Progress */}
-          {budgetData.length > 0 && (
-            <View>
-              <Text className="text-lg font-semibold mb-3">Budget Progress</Text>
-              <View className="gap-3">
-                {budgetData.map(({ category, spent }) => (
-                  <BudgetProgress
-                    key={category.id}
-                    category={category}
-                    spent={spent}
+              <View className="flex-1 ml-6 space-y-4">
+                <View>
+                  <View className="flex-row justify-between mb-2">
+                    <Text className="text-gray-600 dark:text-gray-400 text-sm">
+                      Selesai
+                    </Text>
+                    <Text className="text-gray-900 dark:text-white font-semibold">
+                      {userStats.todos.completed}
+                    </Text>
+                  </View>
+                  <ProgressBar 
+                    percentage={(userStats.todos.completed / Math.max(userStats.todos.total, 1)) * 100}
+                    color="#10B981"
                   />
-                ))}            </View>
+                </View>
+
+                <View>
+                  <View className="flex-row justify-between mb-2">
+                    <Text className="text-gray-600 dark:text-gray-400 text-sm">
+                      Pending
+                    </Text>
+                    <Text className="text-gray-900 dark:text-white font-semibold">
+                      {userStats.todos.pending}
+                    </Text>
+                  </View>
+                  <ProgressBar 
+                    percentage={(userStats.todos.pending / Math.max(userStats.todos.total, 1)) * 100}
+                    color="#F59E0B"
+                  />
+                </View>
+
+                <View>
+                  <View className="flex-row justify-between mb-2">
+                    <Text className="text-gray-600 dark:text-gray-400 text-sm">
+                      Total Tugas
+                    </Text>
+                    <Text className="text-gray-900 dark:text-white font-bold text-lg">
+                      {userStats.todos.total}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            </View>
+          </View>
+
+          {/* Weekly Activity Chart */}
+          <View className="bg-white dark:bg-gray-800 rounded-3xl p-6 shadow-sm">
+            <View className="flex-row items-center justify-between mb-6">
+              <View>
+                <Text className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Aktivitas Minggu Ini
+                </Text>
+                <Text className="text-gray-600 dark:text-gray-400 text-sm">
+                  Transaksi & tugas baru
+                </Text>
+              </View>
+              <Calendar size={24} color="#8B5CF6" />
+            </View>
+
+            <View className="flex-row justify-around">
+              <View className="items-center">
+                <View className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-2xl items-center justify-center mb-3">
+                  <Text className="text-2xl font-bold text-blue-600">
+                    {userStats.transactions.thisMonth}
+                  </Text>
+                </View>
+                <Text className="text-gray-600 dark:text-gray-400 text-sm text-center">
+                  Transaksi
+                </Text>
+              </View>
+
+              <View className="items-center">
+                <View className="w-16 h-16 bg-purple-100 dark:bg-purple-900/30 rounded-2xl items-center justify-center mb-3">
+                  <Text className="text-2xl font-bold text-purple-600">
+                    {userStats.todos.thisWeek}
+                  </Text>
+                </View>
+                <Text className="text-gray-600 dark:text-gray-400 text-sm text-center">
+                  Tugas Baru
+                </Text>
+              </View>
+
+              <View className="items-center">
+                <View className={`w-16 h-16 rounded-2xl items-center justify-center mb-3 ${
+                  userStats.todos.completionRate >= 70 ? 'bg-green-100 dark:bg-green-900/30' :
+                  userStats.todos.completionRate >= 50 ? 'bg-yellow-100 dark:bg-yellow-900/30' :
+                  'bg-red-100 dark:bg-red-900/30'
+                }`}>
+                  <Text className={`text-2xl font-bold ${
+                    userStats.todos.completionRate >= 70 ? 'text-green-600' :
+                    userStats.todos.completionRate >= 50 ? 'text-yellow-600' :
+                    'text-red-600'
+                  }`}>
+                    {userStats.todos.completionRate >= 70 ? '😊' :
+                     userStats.todos.completionRate >= 50 ? '😐' : '😔'}
+                  </Text>
+                </View>
+                <Text className="text-gray-600 dark:text-gray-400 text-sm text-center">
+                  Mood
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Simple Tips - Only when needed */}
+          {userStats.todos.completionRate < 50 && userStats.todos.total > 0 && (
+            <View className="bg-amber-50 dark:bg-amber-900/20 p-4 rounded-2xl">
+              <Text className="font-medium text-amber-800 dark:text-amber-200 mb-2">
+                💡 Tips Produktivitas
+              </Text>
+              <Text className="text-amber-700 dark:text-amber-300 text-sm">
+                Tingkat penyelesaian tugas masih rendah. Coba buat tugas yang lebih kecil dan spesifik.
+              </Text>
             </View>
           )}
 
-          {/* Insights */}
-          <View>
-            <Text className="text-lg font-semibold mb-3">Insights</Text>
-            <View className="bg-card p-4 rounded-xl border border-border">
-              {financialData.savingsRate >= 20 ? (
-                <View className="flex-row items-start">
-                  <View className="w-2 h-2 rounded-full bg-success mt-2 mr-3" />
-                  <View className="flex-1">
-                    <Text className="font-medium mb-1" style={{ color: successColor }}>
-                      Great savings rate!
-                    </Text>
-                    <Text className="text-sm text-muted-foreground">
-                      You're saving {financialData.savingsRate.toFixed(1)}% of your income, which exceeds the recommended 20% target.
-                    </Text>
-                  </View>
-                </View>
-              ) : (
-                <View className="flex-row items-start">
-                  <View className="w-2 h-2 rounded-full bg-warning mt-2 mr-3" />
-                  <View className="flex-1">
-                    <Text className="font-medium mb-1" style={{ color: warningColor }}>
-                      Consider increasing savings
-                    </Text>
-                    <Text className="text-sm text-muted-foreground">
-                      Your savings rate is {financialData.savingsRate.toFixed(1)}%. Consider aiming for 20% to build a stronger financial foundation.
-                    </Text>
-                  </View>
-                </View>
-              )}
-              
-              {categoryBreakdown.length > 0 && (
-                <View className="mt-4 pt-4 border-t border-border/30">
-                  <View className="flex-row items-start">
-                    <View className="w-2 h-2 rounded-full bg-primary mt-2 mr-3" />
-                    <View className="flex-1">
-                      <Text className="font-medium mb-1">
-                        Top expense category
-                      </Text>
-                      <Text className="text-sm text-muted-foreground">
-                        {categoryBreakdown[0]?.label} accounts for {formatCurrency(categoryBreakdown[0]?.value || 0)} 
-                        ({((categoryBreakdown[0]?.value || 0) / financialData.expenses * 100).toFixed(1)}%) of your expenses.
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-              )}
+          {userStats.transactions.total === 0 && (
+            <View className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-2xl">
+              <Text className="font-medium text-blue-800 dark:text-blue-200 mb-2">
+                🚀 Mulai Tracking
+              </Text>
+              <Text className="text-blue-700 dark:text-blue-300 text-sm">
+                Belum ada transaksi. Mulai catat transaksi untuk melihat statistik keuangan.
+              </Text>
             </View>
-          </View>
+          )}
         </View>
       </ScrollView>
     </View>

@@ -1,20 +1,28 @@
 import React, { useMemo, useCallback, useState, useEffect } from 'react';
-import { View, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
+import { View, ScrollView, TouchableOpacity, RefreshControl, Pressable } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Plus, ArrowRight, TrendingUp, CheckCircle, Clock } from 'lucide-react-native';
+import { 
+  Plus, 
+  ArrowRight, 
+  TrendingUp, 
+  CheckCircle, 
+  Clock, 
+  Bell,
+  ArrowUpRight,
+  ArrowDownLeft,
+  Send,
+  Download,
+  CreditCard,
+  BarChart3,
+  User
+} from 'lucide-react-native';
 import { router } from 'expo-router';
 
 import { formatIDR } from '~/utils/currency';
 
 import { Text } from '~/components/ui/text';
-import { Header, FAB } from '~/src/shared/ui';
 import { 
-  BalanceHeader, 
-  ChartCard, 
-  SimpleBarChart, 
-  StatsCard, 
-  StatsGrid,
-  TodoItem 
+  SimpleBarChart 
 } from '~/src/shared/components';
 import { useTodos } from '~/src/hooks';
 import { useTransactions } from '~/src/hooks';
@@ -228,26 +236,20 @@ export default function DashboardScreen() {
   // ✅ Early return after all hooks (if needed)
   if (status === 'loading') {
     return (
-      <View className="flex-1" style={{ backgroundColor }}>
-        <Header title="Dashboard" />
-        <View className="flex-1 justify-center items-center p-4">
-          <Text className="text-center text-muted-foreground">
-            Loading dashboard...
-          </Text>
-        </View>
+      <View className="flex-1 bg-gray-50 dark:bg-black justify-center items-center">
+        <Text className="text-center text-gray-500 dark:text-gray-400">
+          Loading dashboard...
+        </Text>
       </View>
     );
   }
 
   if (status === 'unauthenticated' || !session?.user?.id) {
     return (
-      <View className="flex-1" style={{ backgroundColor }}>
-        <Header title="Dashboard" />
-        <View className="flex-1 justify-center items-center p-4">
-          <Text className="text-center text-muted-foreground">
-            Please sign in to view your dashboard
-          </Text>
-        </View>
+      <View className="flex-1 bg-gray-50 dark:bg-black justify-center items-center">
+        <Text className="text-center text-gray-500 dark:text-gray-400">
+          Please sign in to view your dashboard
+        </Text>
       </View>
     );
   }
@@ -256,21 +258,37 @@ export default function DashboardScreen() {
   const error = todosError || transactionsError;
 
   return (
-    <View className="flex-1" style={{ backgroundColor }}>
-      <Header 
-        title="Dashboard" 
-        subtitle={`Selamat ${new Date().getHours() < 12 ? 'pagi' : new Date().getHours() < 18 ? 'siang' : 'malam'}!`}
-        rightActions={
-          <TouchableOpacity
-            onPress={handleAddTransaction}
-            className="p-2"
-            accessibilityRole="button"
-            accessibilityLabel="Tambah transaksi"
-          >
-            <Plus size={24} color={foregroundColor} />
-          </TouchableOpacity>
-        }
-      />
+    <View className="flex-1 bg-gray-50 dark:bg-black">
+      {/* Custom Header */}
+      <View 
+        className="px-5 pt-4 pb-6"
+        style={{ paddingTop: insets.top + 16 }}
+      >
+        <View className="flex-row justify-between items-center">
+          <View>
+            <Text className="text-xl font-semibold text-gray-900 dark:text-white">
+              Halo, {session?.user?.user_metadata?.full_name?.split(' ')[0] || 'User'}!
+            </Text>
+            <Text className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              {new Date().getHours() < 12 ? 'Selamat pagi' : new Date().getHours() < 18 ? 'Selamat siang' : 'Selamat malam'}
+            </Text>
+          </View>
+          <View className="flex-row items-center gap-3">
+            <Pressable
+              className="w-10 h-10 rounded-full bg-white dark:bg-gray-800 items-center justify-center shadow-sm active:scale-95"
+              onPress={() => {/* Handle notifications */}}
+            >
+              <Bell size={20} color={foregroundColor} />
+            </Pressable>
+            <Pressable
+              className="w-10 h-10 rounded-full bg-white dark:bg-gray-800 items-center justify-center shadow-sm active:scale-95"
+              onPress={() => router.push('/profile')}
+            >
+              <User size={20} color={foregroundColor} />
+            </Pressable>
+          </View>
+        </View>
+      </View>
 
       <ScrollView
         className="flex-1"
@@ -282,162 +300,330 @@ export default function DashboardScreen() {
           />
         }
       >
-        <View className="p-4 gap-6">
-          {/* Balance Overview */}
-          <BalanceHeader
-            totalBalance={dashboardStats.totalBalance}
-            monthlyIncome={dashboardStats.monthlyIncome}
-            monthlyExpenses={dashboardStats.monthlyExpenses}
-          />
+        <View className="px-5 gap-6">
+          {/* Balance Card - Main Feature */}
+          <View className="rounded-3xl overflow-hidden shadow-xl">
+            {/* Gradien background menggunakan View terpisah */}
+            <View className="bg-blue-600 dark:bg-blue-700 p-6 relative">
+              {/* Background pattern/overlay */}
+              <View className="absolute inset-0 bg-gradient-to-br from-blue-500/20 to-purple-600/20" />
+              
+              <View className="relative z-10">
+                <View className="flex-row justify-between items-start mb-6">
+                  <View>
+                    <Text className="text-white/70 text-sm font-medium">Saldo Bulan Ini</Text>
+                    <Text className="text-white text-4xl font-bold mt-2 tracking-wide">
+                      {formatIDR(dashboardStats.totalBalance)}
+                    </Text>
+                    <Text className="text-white/60 text-xs mt-1">
+                      {dashboardStats.totalBalance >= 0 ? 'Surplus' : 'Defisit'} • {new Date().toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })}
+                    </Text>
+                  </View>
+                  <View className="bg-white/15 backdrop-blur rounded-2xl p-3">
+                    <CreditCard size={28} color="white" />
+                  </View>
+                </View>
+                
+                <View className="flex-row justify-between mb-6">
+                  <View className="bg-white/10 backdrop-blur rounded-xl p-4 flex-1 mr-2">
+                    <View className="flex-row items-center mb-2">
+                      <ArrowDownLeft size={16} color="#22C55E" />
+                      <Text className="text-white/70 text-xs font-medium ml-1">Pemasukan</Text>
+                    </View>
+                    <Text className="text-green-300 text-lg font-bold">
+                      {formatIDR(dashboardStats.monthlyIncome)}
+                    </Text>
+                  </View>
+                  <View className="bg-white/10 backdrop-blur rounded-xl p-4 flex-1 ml-2">
+                    <View className="flex-row items-center mb-2">
+                      <ArrowUpRight size={16} color="#EF4444" />
+                      <Text className="text-white/70 text-xs font-medium ml-1">Pengeluaran</Text>
+                    </View>
+                    <Text className="text-red-300 text-lg font-bold">
+                      {formatIDR(dashboardStats.monthlyExpenses)}
+                    </Text>
+                  </View>
+                </View>
 
-          {/* Quick Stats */}
-          <View>
-            <Text className="text-lg font-semibold mb-3">Ringkasan</Text>
-            <StatsGrid columns={2}>
-              <StatsCard
-                title="Total Pemasukan"
-                value={formatIDR(dashboardStats.monthlyIncome)}
-                subtitle="Bulan ini"
-                change={{
-                  value: "+12.5%",
-                  type: "increase",
-                  period: "vs bulan lalu"
-                }}
-                icon={TrendingUp}
-                color={successColor}
-              />
-              <StatsCard
-                title="Tugas Selesai"
-                value={dashboardStats.completedTodos.toString()}
-                subtitle={`${dashboardStats.pendingTodos} pending`}
-                change={{
-                  value: "+3",
-                  type: "increase",
-                  period: "hari ini"
-                }}
-                icon={CheckCircle}
-                color={primaryColor}
-              />
-            </StatsGrid>
+                {/* Quick Actions for Finance Tracking */}
+                <View className="flex-row justify-between gap-3">
+                  <Pressable 
+                    className="items-center justify-center rounded-2xl p-4 bg-green-500/20 backdrop-blur flex-1 active:scale-95 active:bg-green-500/30"
+                    onPress={() => router.push('/add-transaction?type=income')}
+                  >
+                    <Plus size={22} color="#22C55E" />
+                    <Text className="text-green-300 text-sm font-semibold mt-2">Pemasukan</Text>
+                  </Pressable>
+                  <Pressable 
+                    className="items-center justify-center rounded-2xl p-4 bg-red-500/20 backdrop-blur flex-1 active:scale-95 active:bg-red-500/30"
+                    onPress={() => router.push('/add-transaction?type=expense')}
+                  >
+                    <ArrowUpRight size={22} color="#EF4444" />
+                    <Text className="text-red-300 text-sm font-semibold mt-2">Pengeluaran</Text>
+                  </Pressable>
+                  <Pressable 
+                    className="items-center justify-center rounded-2xl p-4 bg-white/15 backdrop-blur flex-1 active:scale-95 active:bg-white/20"
+                    onPress={() => router.push('/transactions')}
+                  >
+                    <BarChart3 size={22} color="white" />
+                    <Text className="text-white text-sm font-semibold mt-2">Laporan</Text>
+                  </Pressable>
+                </View>
+              </View>
+            </View>
           </View>
 
-          {/* Spending Chart */}
-          <ChartCard
-            title="Aktivitas Terbaru"
-            subtitle="7 hari terakhir"
-            chartType="bar"
-            onPress={() => router.push('/reports')}
-          >
-            <SimpleBarChart data={chartData} />
-          </ChartCard>
+          {/* Quick Stats Grid */}
+          <View>
+            <Text className="text-xl font-bold text-gray-900 dark:text-white mb-5">Ringkasan</Text>
+            <View className="flex-row gap-4">
+              <View className="flex-1 rounded-3xl p-5 bg-white dark:bg-gray-900 shadow-lg border border-gray-100 dark:border-gray-800">
+                <View className="flex-row items-center justify-between mb-4">
+                  <View className="w-12 h-12 rounded-2xl bg-gradient-to-br from-green-400 to-green-600 items-center justify-center">
+                    <TrendingUp size={20} color="white" />
+                  </View>
+                  <View className="bg-green-50 dark:bg-green-900/20 px-2 py-1 rounded-full">
+                    <Text className="text-green-600 dark:text-green-400 text-xs font-bold">+12.5%</Text>
+                  </View>
+                </View>
+                <Text className="text-gray-500 dark:text-gray-400 text-sm font-medium mb-2">Pemasukan Bulan Ini</Text>
+                <Text className="text-gray-900 dark:text-white text-xl font-bold">
+                  {formatIDR(dashboardStats.monthlyIncome)}
+                </Text>
+              </View>
+              
+              <View className="flex-1 rounded-3xl p-5 bg-white dark:bg-gray-900 shadow-lg border border-gray-100 dark:border-gray-800">
+                <View className="flex-row items-center justify-between mb-4">
+                  <View className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-400 to-blue-600 items-center justify-center">
+                    <CheckCircle size={20} color="white" />
+                  </View>
+                  <View className="bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded-full">
+                    <Text className="text-blue-600 dark:text-blue-400 text-xs font-bold">+3</Text>
+                  </View>
+                </View>
+                <Text className="text-gray-500 dark:text-gray-400 text-sm font-medium mb-2">Tugas Selesai</Text>
+                <Text className="text-gray-900 dark:text-white text-xl font-bold">
+                  {dashboardStats.completedTodos}
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Chart Section */}
+          <View className="rounded-3xl p-6 bg-white dark:bg-gray-900 shadow-lg border border-gray-100 dark:border-gray-800">
+            <View className="flex-row items-center justify-between mb-6">
+              <View className="flex-row items-center">
+                <View className="w-12 h-12 rounded-2xl bg-gradient-to-br from-purple-400 to-purple-600 items-center justify-center mr-4">
+                  <BarChart3 size={20} color="white" />
+                </View>
+                <View>
+                  <Text className="text-gray-900 dark:text-white text-lg font-bold">Aktivitas Terbaru</Text>
+                  <Text className="text-gray-500 dark:text-gray-400 text-sm">7 hari terakhir</Text>
+                </View>
+              </View>
+              <Pressable 
+                className="bg-gray-100 dark:bg-gray-800 rounded-full p-2 active:scale-95"
+                onPress={() => router.push('/reports')}
+              >
+                <ArrowRight size={20} color="#3B82F6" />
+              </Pressable>
+            </View>
+            {chartData.length > 0 ? (
+              <SimpleBarChart data={chartData} />
+            ) : (
+              <View className="h-40 items-center justify-center bg-gray-50 dark:bg-gray-800/50 rounded-2xl">
+                <View className="w-16 h-16 rounded-full bg-gray-200 dark:bg-gray-700 items-center justify-center mb-3">
+                  <BarChart3 size={28} color="#9CA3AF" />
+                </View>
+                <Text className="text-gray-900 dark:text-white font-semibold mb-1">
+                  Belum ada data transaksi
+                </Text>
+                <Text className="text-gray-500 dark:text-gray-400 text-sm text-center">
+                  Tambah transaksi pertama Anda untuk melihat grafik
+                </Text>
+              </View>
+            )}
+          </View>
 
           {/* Today's Tasks */}
           <View>
-            <View className="flex-row items-center justify-between mb-3">
-              <Text className="text-lg font-semibold">Tugas Hari Ini</Text>
-              <TouchableOpacity
+            <View className="flex-row items-center justify-between mb-4">
+              <Text className="text-xl font-bold text-gray-900 dark:text-white">Tugas Hari Ini</Text>
+              <Pressable
                 onPress={() => router.push('/todos')}
-                className="flex-row items-center"
-                accessibilityRole="button"
-                accessibilityLabel="Lihat semua tugas"
+                className="flex-row items-center active:scale-95"
               >
-                <Text className="text-sm text-primary mr-1">Lihat semua</Text>
-                <ArrowRight size={16} color={primaryColor} />
-              </TouchableOpacity>
+                <Text className="text-sm text-blue-600 dark:text-blue-400 font-medium mr-1">Lihat semua</Text>
+                <ArrowRight size={16} color="#3B82F6" />
+              </Pressable>
             </View>
 
             {dashboardStats.todaysTodos.length > 0 ? (
-              <View className="bg-card rounded-xl border border-border overflow-hidden">
+              <View className="rounded-3xl bg-white dark:bg-gray-900 shadow-lg border border-gray-100 dark:border-gray-800 overflow-hidden">
                 {dashboardStats.todaysTodos.slice(0, 3).map((todo, index) => (
-                  <View key={todo.id} className="border-b border-border/50 last:border-b-0">
-                    <TodoItem
-                      todo={todo}
-                      onToggle={() => toggleTodo(todo.id)}
-                      onPress={() => {
-                        router.push(`/add-todo?id=${todo.id}`);
-                      }}
-                      onDelete={() => deleteTodo(todo.id)}
-                    />
+                  <View key={todo.id}>
+                    <Pressable
+                      className="p-5 flex-row items-center active:bg-gray-50 dark:active:bg-gray-800"
+                      onPress={() => router.push(`/add-todo?id=${todo.id}`)}
+                    >
+                      <Pressable
+                        className="w-6 h-6 rounded-full border-2 border-gray-300 dark:border-gray-600 mr-4 items-center justify-center active:scale-95"
+                        onPress={() => toggleTodo(todo.id)}
+                      >
+                        {todo.done && <View className="w-3 h-3 rounded-full bg-green-500" />}
+                      </Pressable>
+                      
+                      <View className="flex-1">
+                        <Text className="text-gray-900 dark:text-white font-semibold mb-2" numberOfLines={1}>
+                          {todo.title}
+                        </Text>
+                        <View className="flex-row items-center">
+                          <View className="rounded-full px-3 py-1 bg-red-100 dark:bg-red-900/30 mr-3">
+                            <Text className="text-red-600 dark:text-red-400 text-xs font-bold">PRIORITAS</Text>
+                          </View>
+                          <Clock size={14} color="#9CA3AF" />
+                          <Text className="text-gray-500 dark:text-gray-400 text-sm ml-1">
+                            {todo.due ? new Date(todo.due).toLocaleTimeString('id-ID', { 
+                              hour: '2-digit', 
+                              minute: '2-digit' 
+                            }) : 'Tanpa deadline'}
+                          </Text>
+                        </View>
+                      </View>
+                      
+                      <Pressable
+                        onPress={() => deleteTodo(todo.id)}
+                        className="ml-3 p-2 rounded-xl bg-red-50 dark:bg-red-900/20 active:scale-95"
+                      >
+                        <Text className="text-red-500 text-sm font-medium">Hapus</Text>
+                      </Pressable>
+                    </Pressable>
+                    {index < dashboardStats.todaysTodos.slice(0, 3).length - 1 && (
+                      <View className="border-b border-gray-100 dark:border-gray-800 ml-5" />
+                    )}
                   </View>
                 ))}
               </View>
             ) : (
-              <View className="bg-card p-6 rounded-xl border border-border items-center">
-                <Clock size={32} color={mutedForegroundColor} />
-                <Text className="text-muted-foreground text-center mt-2">
-                  Tidak ada tugas untuk hari ini
+              <View className="rounded-3xl p-8 bg-white dark:bg-gray-900 shadow-lg border border-gray-100 dark:border-gray-800 items-center">
+                <View className="w-16 h-16 rounded-full bg-blue-100 dark:bg-blue-900/30 items-center justify-center mb-4">
+                  <Clock size={28} color="#3B82F6" />
+                </View>
+                <Text className="text-gray-900 dark:text-white font-bold text-lg text-center mb-2">
+                  Tidak ada tugas hari ini
                 </Text>
-                <Text className="text-sm text-muted-foreground text-center mt-1">
-                  Tekan tombol + untuk menambah tugas baru
+                <Text className="text-gray-500 dark:text-gray-400 text-sm text-center mb-4">
+                  Hari ini bisa jadi hari santai atau tambah tugas baru
                 </Text>
+                <Pressable
+                  className="bg-blue-600 px-4 py-2 rounded-xl active:scale-95"
+                  onPress={handleAddTodo}
+                >
+                  <Text className="text-white font-semibold text-sm">Tambah Tugas</Text>
+                </Pressable>
               </View>
             )}
           </View>
 
           {/* Recent Transactions */}
           <View>
-            <View className="flex-row items-center justify-between mb-3">
-              <Text className="text-lg font-semibold">Transaksi Terbaru</Text>
-              <TouchableOpacity
+            <View className="flex-row items-center justify-between mb-4">
+              <Text className="text-xl font-bold text-gray-900 dark:text-white">Transaksi Terbaru</Text>
+              <Pressable
                 onPress={() => router.push('/transactions')}
-                className="flex-row items-center"
-                accessibilityRole="button"
-                accessibilityLabel="Lihat semua transaksi"
+                className="flex-row items-center active:scale-95"
               >
-                <Text className="text-sm text-primary mr-1">Lihat semua</Text>
-                <ArrowRight size={16} color={primaryColor} />
-              </TouchableOpacity>
+                <Text className="text-sm text-blue-600 dark:text-blue-400 font-medium mr-1">Lihat semua</Text>
+                <ArrowRight size={16} color="#3B82F6" />
+              </Pressable>
             </View>
 
-            <View className="bg-card rounded-xl border border-border overflow-hidden">
-              {dashboardStats.recentTransactions.slice(0, 3).map((transaction) => (
-                <View key={transaction.id}>
-                  {/* Simplified transaction item for dashboard */}
-                  <View className="p-4 border-b border-border/50 last:border-b-0">
-                    <View className="flex-row items-center justify-between">
-                      <View className="flex-1">
-                        <Text className="font-medium mb-1" numberOfLines={1}>
-                          {transaction.title}
-                        </Text>
-                        <Text className="text-sm text-muted-foreground" numberOfLines={1}>
-                          {new Date(transaction.date).toLocaleDateString('id-ID')}
-                        </Text>
+            {dashboardStats.recentTransactions.length > 0 ? (
+              <View className="rounded-3xl bg-white dark:bg-gray-900 shadow-lg border border-gray-100 dark:border-gray-800 overflow-hidden">
+                {dashboardStats.recentTransactions.slice(0, 4).map((transaction, index) => (
+                  <View key={transaction.id}>
+                    <View className="p-5 flex-row items-center justify-between">
+                      <View className="flex-row items-center flex-1">
+                        <View className={`w-12 h-12 rounded-2xl items-center justify-center mr-4 ${
+                          transaction.type === 'income' 
+                            ? 'bg-green-100 dark:bg-green-900/30' 
+                            : 'bg-red-100 dark:bg-red-900/30'
+                        }`}>
+                          {transaction.type === 'income' ? (
+                            <ArrowDownLeft size={24} color="#22C55E" />
+                          ) : (
+                            <ArrowUpRight size={24} color="#EF4444" />
+                          )}
+                        </View>
+                        <View className="flex-1">
+                          <Text className="text-gray-900 dark:text-white font-semibold text-base mb-1" numberOfLines={1}>
+                            {transaction.title}
+                          </Text>
+                          <Text className="text-gray-500 dark:text-gray-400 text-sm">
+                            {new Date(transaction.date).toLocaleDateString('id-ID', {
+                              day: 'numeric',
+                              month: 'short',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </Text>
+                        </View>
                       </View>
-                      <View className="flex-row items-center gap-2">
+                      
+                      <View className="flex-row items-center">
                         <Text 
-                          className="text-lg font-semibold"
+                          className="text-xl font-bold mr-4"
                           style={{ 
-                            color: transaction.type === 'income' 
-                              ? successColor
-                              : destructiveColor
+                            color: transaction.type === 'income' ? '#22C55E' : '#EF4444'
                           }}
                         >
                           {transaction.type === 'income' ? '+' : '-'}{formatIDR(transaction.amount)}
                         </Text>
-                        <TouchableOpacity
+                        <Pressable
                           onPress={() => deleteTransaction(transaction.id)}
-                          className="p-1"
-                          accessibilityRole="button"
-                          accessibilityLabel="Hapus transaksi"
+                          className="p-2 rounded-xl bg-red-50 dark:bg-red-900/20 active:scale-95"
                         >
-                          <Text className="text-destructive text-sm">Hapus</Text>
-                        </TouchableOpacity>
+                          <Text className="text-red-500 text-sm font-medium">Hapus</Text>
+                        </Pressable>
                       </View>
                     </View>
+                    {index < dashboardStats.recentTransactions.slice(0, 4).length - 1 && (
+                      <View className="border-b border-gray-100 dark:border-gray-800 ml-5" />
+                    )}
                   </View>
+                ))}
+              </View>
+            ) : (
+              <View className="rounded-3xl p-8 bg-white dark:bg-gray-900 shadow-lg border border-gray-100 dark:border-gray-800 items-center">
+                <View className="w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-800 items-center justify-center mb-4">
+                  <CreditCard size={28} color="#9CA3AF" />
                 </View>
-              ))}
-            </View>
+                <Text className="text-gray-900 dark:text-white font-bold text-lg text-center mb-2">
+                  Belum ada transaksi
+                </Text>
+                <Text className="text-gray-500 dark:text-gray-400 text-sm text-center mb-4">
+                  Mulai catat pemasukan dan pengeluaran Anda
+                </Text>
+                <Pressable
+                  className="bg-blue-600 px-4 py-2 rounded-xl active:scale-95"
+                  onPress={handleAddTransaction}
+                >
+                  <Text className="text-white font-semibold text-sm">Tambah Transaksi</Text>
+                </Pressable>
+              </View>
+            )}
           </View>
         </View>
       </ScrollView>
 
       {/* Floating Action Button */}
-      <View className="absolute bottom-6 right-4">
-        <FAB
-          onPress={handleAddTodo}
-          accessibilityLabel="Tambah tugas baru"
-        />
+      <View className="absolute bottom-6 right-5">
+        <Pressable
+          className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-600 to-blue-700 dark:from-blue-700 dark:to-blue-800 items-center justify-center shadow-2xl active:scale-95"
+          onPress={handleAddTransaction}
+        >
+          <Plus size={32} color="white" />
+        </Pressable>
       </View>
     </View>
   );

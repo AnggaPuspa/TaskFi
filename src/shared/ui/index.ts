@@ -9,5 +9,7 @@ export { SelectSheet } from './SelectSheet';
 export { CustomDateTimePicker } from './CustomDateTimePicker';
 export { DateTimePickerNative } from './DateTimePickerNative';
 export { TimePickerField } from './TimePickerField';
+export { OCRScanner } from './OCRScanner';
+export { OCRResultSheet } from './OCRResultSheet';
 
 export type { SelectOption } from './SelectSheet';
