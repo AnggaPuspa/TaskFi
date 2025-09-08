@@ -13,11 +13,10 @@
       "resizeMode": "contain",
       "backgroundColor": "#667eea"
     },
-    "assetBundlePatterns": [
-      "**/*"
-    ],
+    "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": true,
+      "bundleIdentifier": "com.anggapuspa.taskfi",
       "infoPlist": {
         "NSCameraUsageDescription": "Aplikasi ini memerlukan akses kamera untuk scan struk belanja secara realtime dan mengisi form transaksi secara otomatis.",
         "NSMicrophoneUsageDescription": "Aplikasi ini tidak menggunakan mikrofon."
@@ -31,12 +30,9 @@
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.FLASHLIGHT",
-        "android.permission.RECORD_AUDIO",
-        "android.permission.CAMERA",
-        "android.permission.FLASHLIGHT",
         "android.permission.RECORD_AUDIO"
       ],
-      "package": "com.anonymous.TaskFi"
+      "package": "com.anggapuspa.taskfi"
     },
     "web": {
       "bundler": "metro",
@@ -62,6 +58,11 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "4d732f63-5fe7-4a76-982e-16575041e34a"
+      }
     }
   }
 }
