@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "TaskFi",
-    "slug": "TaskFi",
+    "slug": "taskfi",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
