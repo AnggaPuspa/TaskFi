@@ -25,7 +25,11 @@
       "env": {
         "NPM_CONFIG_LEGACY_PEER_DEPS": "true"
       },
-      "credentialsSource": "remote"
+      "credentialsSource": "remote",
+      "android": {
+        "gradleCommand": ":app:assembleRelease",
+        "buildType": "apk"
+      }
     }
   },
   "submit": {

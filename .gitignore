@@ -7,10 +7,6 @@ node_modules/
 .qoder/
 .qoder
 
-/android
-/ios
-
-
 # Expo
 .expo/
 dist/
@@ -48,3 +44,7 @@ yarn-error.*
 expo-env.d.ts
 # @end expo-cli
 .env
+
+# Native folders (using Prebuild)
+/android
+/ios
