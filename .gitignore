@@ -7,6 +7,10 @@ node_modules/
 .qoder/
 .qoder
 
+/android
+/ios
+
+
 # Expo
 .expo/
 dist/

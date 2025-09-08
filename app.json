@@ -13,7 +13,9 @@
       "resizeMode": "contain",
       "backgroundColor": "#667eea"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.anggapuspa.taskfi",
@@ -32,7 +34,8 @@
         "android.permission.FLASHLIGHT",
         "android.permission.RECORD_AUDIO"
       ],
-      "package": "com.anggapuspa.taskfi"
+      "package": "com.anggapuspa.taskfi",
+      "versionCode": 2
     },
     "web": {
       "bundler": "metro",
