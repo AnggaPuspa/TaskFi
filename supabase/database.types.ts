@@ -28,6 +28,56 @@ export interface Database {
           updated_at?: string;
         };
       };
+      receipts: {
+        Row: {
+          id: string;
+          user_id: string;
+          storage_path: string | null;
+          ocr_text: string;
+          merchant: string | null;
+          total_amount: number | null;
+          currency: string;
+          purchase_date: string | null;
+          status: 'pending' | 'parsed' | 'confirmed' | 'failed';
+          confidence_score: number | null;
+          device_info: any | null;
+          processing_time_ms: number | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          storage_path?: string | null;
+          ocr_text: string;
+          merchant?: string | null;
+          total_amount?: number | null;
+          currency?: string;
+          purchase_date?: string | null;
+          status?: 'pending' | 'parsed' | 'confirmed' | 'failed';
+          confidence_score?: number | null;
+          device_info?: any | null;
+          processing_time_ms?: number | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          storage_path?: string | null;
+          ocr_text?: string;
+          merchant?: string | null;
+          total_amount?: number | null;
+          currency?: string;
+          purchase_date?: string | null;
+          status?: 'pending' | 'parsed' | 'confirmed' | 'failed';
+          confidence_score?: number | null;
+          device_info?: any | null;
+          processing_time_ms?: number | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
       transactions: {
         Row: {
           id: string;

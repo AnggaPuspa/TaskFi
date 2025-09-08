@@ -11,7 +11,8 @@ import { X, FileText, Check, AlertCircle, Zap } from 'lucide-react-native';
 import { Text } from '~/components/ui/text';
 import { Button } from '~/components/ui/button';
 import { useThemeColor } from '~/hooks/useThemeColor';
-import { parseIndonesianReceipt, ParsedReceiptData } from '~/utils/ocrParser';
+import { parseReceipt } from '~/utils/parseReceipt';
+import type { ParsedReceipt } from '~/utils/receiptParser.types';
 
 interface ParsedData {
   amount?: number;
@@ -46,7 +47,35 @@ export function OCRResultSheet({ visible, onClose, onUseData, rawText }: OCRResu
   const mutedForegroundColor = useThemeColor({}, 'muted-foreground');
 
   const parsedData = useMemo((): ParsedData => {
-    return parseIndonesianReceipt(rawText);
+    if (!rawText) {
+      return { type: 'expense' };
+    }
+    
+    // Parse using our existing receipt parser
+    const ocrResult = { text: rawText, confidence: 0.8 };
+    const parseResult = parseReceipt(ocrResult);
+    
+    if (!parseResult.success || !parseResult.data) {
+      return { type: 'expense' };
+    }
+    
+    const receipt = parseResult.data;
+    
+    // Convert to our format
+    return {
+      amount: receipt.totalAmount || undefined,
+      title: receipt.merchant || undefined,
+      date: receipt.purchaseDate ? new Date(receipt.purchaseDate) : undefined,
+      time: receipt.purchaseDate ? new Date(receipt.purchaseDate) : undefined,
+      type: 'expense', // Default to expense for now
+      category: inferCategory(receipt.merchant || ''),
+      confidence: {
+        amount: receipt.confidence.total,
+        title: receipt.confidence.merchant,
+        date: receipt.confidence.date,
+        overall: receipt.confidence.overall
+      }
+    };
   }, [rawText]);
 
   const handleUseData = () => {
@@ -290,4 +319,48 @@ function getCategoryDisplayName(category: string): string {
   };
   
   return categoryNames[category] || category;
+}
+
+/**
+ * Infer category based on merchant name
+ */
+function inferCategory(merchant: string): string | undefined {
+  const merchantLower = merchant.toLowerCase();
+  
+  // Food & Beverages
+  if (merchantLower.includes('alfamart') || 
+      merchantLower.includes('indomaret') ||
+      merchantLower.includes('warung') ||
+      merchantLower.includes('resto') ||
+      merchantLower.includes('cafe') ||
+      merchantLower.includes('kopi') ||
+      merchantLower.includes('makan')) {
+    return 'food';
+  }
+  
+  // Transportation
+  if (merchantLower.includes('spbu') ||
+      merchantLower.includes('pertamina') ||
+      merchantLower.includes('shell') ||
+      merchantLower.includes('gojek') ||
+      merchantLower.includes('grab') ||
+      merchantLower.includes('taxi')) {
+    return 'transport';
+  }
+  
+  // Health
+  if (merchantLower.includes('apotek') ||
+      merchantLower.includes('rumah sakit') ||
+      merchantLower.includes('klinik') ||
+      merchantLower.includes('dokter')) {
+    return 'health';
+  }
+  
+  // Default to food for convenience stores
+  if (merchantLower.includes('mart') || 
+      merchantLower.includes('toko')) {
+    return 'shopping';
+  }
+  
+  return undefined;
 }

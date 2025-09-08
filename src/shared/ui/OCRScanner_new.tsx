@@ -13,7 +13,6 @@ import { X, Camera as CameraIcon, Flashlight, FlashlightOff } from 'lucide-react
 import { Text } from '~/components/ui/text';
 import { Button } from '~/components/ui/button';
 import { useThemeColor } from '~/hooks/useThemeColor';
-import { ocrService } from '~/utils/ocrService';
 
 interface OCRScannerProps {
   visible: boolean;
@@ -45,13 +44,121 @@ export function OCRScanner({ visible, onClose, onTextRecognized }: OCRScannerPro
 
     setIsProcessing(true);
     try {
-      // Use OCR service (currently using mock data)
-      const ocrResult = await ocrService.processImage('mock_image_path');
-      onTextRecognized(ocrResult.text);
+      // Simulate processing delay
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      // Mock OCR results with realistic Indonesian receipt data
+      const mockReceipts = [
+        `ALFAMART
+Jl. Sudirman No. 123
+Jakarta Selatan 12190
+
+STRUK BELANJA
+================================
+Teh Botol Sosro 350ml     8.500
+Indomie Goreng            3.500
+Roti Tawar Sari Roti     12.000
+Air Mineral Aqua 600ml    3.000
+Oreo Original            15.500
+================================
+Sub Total                42.500
+PPN 11%                   4.675
+TOTAL                    47.175
+================================
+TUNAI                    50.000
+KEMBALIAN                 2.825
+================================
+Tanggal: 08/09/2024
+Waktu: 14:30:25
+Kasir: SARI (001)`,
+
+        `INDOMARET
+JL. GATOT SUBROTO 45
+JAKARTA PUSAT
+
+NOTA PEMBELIAN
+--------------------------
+KOPI KAPAL API          4.500
+MIE SEDAAP GORENG       3.200
+SABUN LIFEBUOY          8.900
+SHAMPO CLEAR           15.700
+--------------------------
+SUBTOTAL               32.300
+TOTAL                  32.300
+--------------------------
+TUNAI                  35.000
+KEMBALI                 2.700
+--------------------------
+TGL: 08/09/24  JAM: 15:45
+KASIR: BUDI`,
+
+        `WARUNG KOPI BAHAGIA
+Jl. Kemang Raya No. 89
+Jakarta Selatan
+
+BON PEMBELIAN
+========================
+Kopi Tubruk              15.000
+Nasi Gudeg               25.000
+Es Teh Manis              8.000
+Kerupuk                   5.000
+========================
+Total                    53.000
+========================
+Bayar Tunai              55.000
+Kembalian                 2.000
+========================
+08/09/2024 - 12:15 WIB
+Server: ANDI`,
+
+        `SPBU PERTAMINA
+STASIUN 44.502.09
+JL. SUDIRMAN KM 7
+JAKARTA SELATAN
+
+STRUK PEMBELIAN BBM
+===================
+PERTALITE
+10.00 Liter x 10.000
+===================
+TOTAL      100.000
+===================
+TUNAI      100.000
+KEMBALIAN        0
+===================
+08/09/2024 10:30
+POMPA: 3
+OPERATOR: RUDI`,
+
+        `APOTEK SEHAT SENTOSA
+Jl. Mangga Besar No. 56
+Jakarta Barat 11180
+
+NOTA OBAT
+--------------------
+PARACETAMOL 500MG   12.500
+VITAMIN C 1000MG    25.000
+PLASTER HANSAPLAST   8.500
+BETADINE 15ML       18.000
+--------------------
+SUB TOTAL           64.000
+DISKON 5%            3.200
+TOTAL               60.800
+--------------------
+CASH                65.000
+CHANGE               4.200
+--------------------
+DATE: 08/09/2024
+TIME: 16:20:15
+CASHIER: SITI`
+      ];
+
+      const selectedReceipt = mockReceipts[Math.floor(Math.random() * mockReceipts.length)];
+      onTextRecognized(selectedReceipt.trim());
       onClose();
     } catch (error) {
-      console.error('Error processing OCR:', error);
-      Alert.alert('Error', 'Gagal memproses gambar. Silakan coba lagi.');
+      console.error('Error taking picture:', error);
+      Alert.alert('Error', 'Gagal mengambil foto. Silakan coba lagi.');
     } finally {
       setIsProcessing(false);
     }

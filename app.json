@@ -13,11 +13,14 @@
       "resizeMode": "contain",
       "backgroundColor": "#667eea"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "NSCameraUsageDescription": "Aplikasi ini memerlukan akses kamera untuk scan struk belanja dan mengisi form transaksi secara otomatis."
+        "NSCameraUsageDescription": "Aplikasi ini memerlukan akses kamera untuk scan struk belanja secara realtime dan mengisi form transaksi secara otomatis.",
+        "NSMicrophoneUsageDescription": "Aplikasi ini tidak menggunakan mikrofon."
       }
     },
     "android": {
@@ -26,8 +29,14 @@
         "backgroundColor": "#ffffff"
       },
       "permissions": [
-        "android.permission.CAMERA"
-      ]
+        "android.permission.CAMERA",
+        "android.permission.FLASHLIGHT",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.CAMERA",
+        "android.permission.FLASHLIGHT",
+        "android.permission.RECORD_AUDIO"
+      ],
+      "package": "com.anonymous.TaskFi"
     },
     "web": {
       "bundler": "metro",
@@ -35,12 +44,19 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
-      "expo-router", 
+      "expo-router",
       "expo-secure-store",
       [
         "expo-camera",
         {
           "cameraPermission": "Aplikasi ini memerlukan akses kamera untuk scan struk belanja dan mengisi form transaksi secara otomatis."
+        }
+      ],
+      [
+        "react-native-vision-camera",
+        {
+          "cameraPermissionText": "Aplikasi ini memerlukan akses kamera untuk scan struk belanja secara realtime dan mengisi form transaksi secara otomatis.",
+          "enableMicrophonePermission": false
         }
       ]
     ],

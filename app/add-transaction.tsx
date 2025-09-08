@@ -23,6 +23,8 @@ import { useThemeColor } from '~/hooks/useThemeColor';
 import { useTransactions } from '~/features/transactions/hooks';
 import { Transaction } from '~/src/types';
 import { parseIDR, formatInputIDR } from '~/utils/currency';
+import { parseReceipt } from '~/utils/parseReceipt';
+import { convertReceiptToTransaction, validateReceiptForTransaction } from '~/utils/receiptTransactionIntegration';
 
 interface FormData {
   type: 'income' | 'expense';
@@ -246,7 +248,81 @@ export default function AddTransactionScreen() {
   };
 
   const handleUseOCRData = (data: any) => {
-    // Update form with OCR data while preserving existing values
+    // Enhanced OCR data processing with production logic
+    try {
+      // Parse the OCR text to get structured receipt data
+      const ocrResult = { text: data.rawText || ocrText, confidence: 0.8 };
+      const parseResult = parseReceipt(ocrResult);
+      
+      if (parseResult.success && parseResult.data) {
+        const receipt = parseResult.data;
+        
+        // Validate receipt data
+        const validation = validateReceiptForTransaction(receipt);
+        
+        if (!validation.isValid) {
+          Alert.alert(
+            'Data Tidak Valid',
+            validation.errors.join('\n'),
+            [{ text: 'OK' }]
+          );
+          return;
+        }
+        
+        // Show warnings if any
+        if (validation.warnings.length > 0) {
+          Alert.alert(
+            'Peringatan',
+            validation.warnings.join('\n') + '\n\nLanjutkan menggunakan data ini?',
+            [
+              { text: 'Batal', style: 'cancel' },
+              { text: 'Lanjutkan', onPress: () => applyOCRData(receipt) }
+            ]
+          );
+        } else {
+          applyOCRData(receipt);
+        }
+      } else {
+        // Fallback to manual data if available
+        applyManualOCRData(data);
+      }
+    } catch (error) {
+      console.error('OCR data processing error:', error);
+      Alert.alert('Error', 'Gagal memproses data OCR');
+    }
+  };
+
+  const applyOCRData = (receipt: any) => {
+    const userId = 'current_user'; // Get from session
+    const conversionResult = convertReceiptToTransaction(receipt, userId, {
+      autoDetectCategory: true,
+      defaultWallet: formData.wallet
+    });
+    
+    // Update form with converted data
+    setFormData(prev => ({
+      ...prev,
+      amount: receipt.totalAmount ? formatInputIDR(receipt.totalAmount) : prev.amount,
+      title: conversionResult.transaction.title || prev.title,
+      category: conversionResult.suggestedCategory,
+      date: receipt.purchaseDate ? new Date(receipt.purchaseDate) : prev.date,
+      note: conversionResult.transaction.note || prev.note,
+      type: 'expense' // Most receipts are expenses
+    }));
+
+    // Clear errors for updated fields
+    setErrors({});
+    
+    // Show success message
+    Alert.alert(
+      'Data Berhasil Digunakan',
+      `Kategori terdeteksi: ${conversionResult.suggestedCategory}\nTingkat akurasi: ${Math.round(conversionResult.confidence * 100)}%`,
+      [{ text: 'OK' }]
+    );
+  };
+
+  const applyManualOCRData = (data: any) => {
+    // Fallback for manual OCR data structure
     if (data.amount) {
       setFormData(prev => ({ ...prev, amount: formatInputIDR(data.amount) }));
     }
@@ -256,17 +332,11 @@ export default function AddTransactionScreen() {
     if (data.date) {
       setFormData(prev => ({ ...prev, date: data.date }));
     }
-    if (data.time) {
-      setFormData(prev => ({ ...prev, time: data.time }));
-    }
-    if (data.type) {
-      setFormData(prev => ({ ...prev, type: data.type, category: '' })); // Reset category when type changes
-    }
     if (data.category) {
       setFormData(prev => ({ ...prev, category: data.category }));
     }
-
-    // Clear any existing errors for fields that were updated
+    
+    // Clear errors for updated fields
     const fieldsToUpdate = Object.keys(data);
     setErrors(prev => {
       const newErrors = { ...prev };
