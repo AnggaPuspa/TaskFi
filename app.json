@@ -35,7 +35,7 @@
         "android.permission.RECORD_AUDIO"
       ],
       "package": "com.anggapuspa.taskfi",
-      "versionCode": 3
+      "versionCode": 5
     },
     "web": {
       "bundler": "metro",
