@@ -10,39 +10,35 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: "20"
 
       - name: Install deps (npm ci)
-        run: npm ci
+        run: npm ci --legacy-peer-deps --no-audit --no-fund
 
-      - name: Setup Java 17
-        uses: actions/setup-java@v4
+      - uses: actions/setup-java@v4
         with:
-          distribution: "temurin"
+          distribution: temurin
           java-version: "17"
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+      - uses: android-actions/setup-android@v3
 
       - name: Install Android SDK components
         run: |
           sdkmanager --install "platform-tools" "build-tools;35.0.0" "platforms;android-35"
-          sdkmanager --licenses <<< "y"
+          yes | sdkmanager --licenses
 
-      - name: Expo prebuild (generate /android)
+      - name: Expo prebuild
         run: npx expo prebuild -p android --non-interactive
 
-      - name: Gradle build (Debug)
+      - name: Build APK (Debug)
         working-directory: android
         run: ./gradlew assembleDebug
 
-      - name: Upload APK artifact
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: app-debug.apk
