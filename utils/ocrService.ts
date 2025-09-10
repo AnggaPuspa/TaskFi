@@ -38,7 +38,18 @@ export class OCRService {
     };
     
     if (ConfigHelpers.isDevelopment()) {
-      console.log('OCR Service initialized with config:', this.config);
+      console.log('🚀 OCR Service initialized with config:', {
+        useMockData: this.config.useMockData,
+        enableRealTimeProcessing: this.config.enableRealTimeProcessing,
+        confidenceThreshold: this.config.confidenceThreshold,
+        language: this.config.language
+      });
+      
+      // Log environment variables for debugging
+      console.log('🔧 Environment variables:');
+      console.log('- EXPO_PUBLIC_OCR_MOCK_MODE:', process.env.EXPO_PUBLIC_OCR_MOCK_MODE);
+      console.log('- EXPO_PUBLIC_ENABLE_REALTIME_OCR:', process.env.EXPO_PUBLIC_ENABLE_REALTIME_OCR);
+      console.log('- EXPO_PUBLIC_OCR_CONFIDENCE_THRESHOLD:', process.env.EXPO_PUBLIC_OCR_CONFIDENCE_THRESHOLD);
     }
   }
 
