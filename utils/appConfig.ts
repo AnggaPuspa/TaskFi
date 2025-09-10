@@ -4,6 +4,11 @@
 // Environment-specific settings for OCR and app features
 // ================================================================
 
+import { loadEnvironment } from './envLoader';
+
+// Ensure environment variables are loaded
+loadEnvironment();
+
 interface AppConfig {
   // OCR Configuration
   ocr: {
@@ -50,30 +55,30 @@ interface AppConfig {
 // Development Configuration - REAL OCR ENABLED
 const developmentConfig: AppConfig = {
   ocr: {
-    enableRealTimeProcessing: true,  // Enable real-time processing
-    useMockData: false,              // DISABLE mock data - use REAL OCR
-    confidenceThreshold: 0.5,
-    frameProcessingInterval: 500,    // Faster processing for development
-    maxRetries: 2,
-    timeoutMs: 5000,
+    enableRealTimeProcessing: process.env.EXPO_PUBLIC_ENABLE_REALTIME_OCR === 'true',
+    useMockData: process.env.EXPO_PUBLIC_OCR_MOCK_MODE === 'true',
+    confidenceThreshold: parseFloat(process.env.EXPO_PUBLIC_OCR_CONFIDENCE_THRESHOLD || '0.5'),
+    frameProcessingInterval: parseInt(process.env.EXPO_PUBLIC_OCR_PROCESSING_INTERVAL || '500'),
+    maxRetries: parseInt(process.env.EXPO_PUBLIC_OCR_MAX_RETRIES || '2'),
+    timeoutMs: parseInt(process.env.EXPO_PUBLIC_OCR_TIMEOUT || '5000'),
   },
   performance: {
-    maxConcurrentOCRTasks: 1,
-    enableFrameSkipping: true,
-    enableImageCompression: false,
-    maxImageSize: 1024,
+    maxConcurrentOCRTasks: parseInt(process.env.EXPO_PUBLIC_MAX_CONCURRENT_OCR_TASKS || '1'),
+    enableFrameSkipping: process.env.EXPO_PUBLIC_ENABLE_FRAME_SKIPPING === 'true',
+    enableImageCompression: process.env.EXPO_PUBLIC_ENABLE_IMAGE_COMPRESSION === 'true',
+    maxImageSize: parseInt(process.env.EXPO_PUBLIC_MAX_IMAGE_SIZE || '1024'),
   },
   camera: {
-    enableHighQuality: true,         // Enable high quality for better OCR
-    enableStabilization: true,       // Enable stabilization
-    defaultPixelFormat: 'yuv',
-    compressionQuality: 0.8,
+    enableHighQuality: process.env.EXPO_PUBLIC_CAMERA_HIGH_QUALITY === 'true',
+    enableStabilization: process.env.EXPO_PUBLIC_CAMERA_STABILIZATION === 'true',
+    defaultPixelFormat: (process.env.EXPO_PUBLIC_CAMERA_PIXEL_FORMAT as 'yuv' | 'rgb') || 'yuv',
+    compressionQuality: parseFloat(process.env.EXPO_PUBLIC_CAMERA_COMPRESSION_QUALITY || '0.8'),
   },
   features: {
-    enableRealtimeOCR: true,         // ENABLE real-time OCR
-    enableAutoTransactionCreation: true,
-    enableReceiptStorage: true,
-    enableDebugMode: true,
+    enableRealtimeOCR: process.env.EXPO_PUBLIC_ENABLE_REALTIME_OCR === 'true',
+    enableAutoTransactionCreation: process.env.EXPO_PUBLIC_ENABLE_AUTO_TRANSACTION_CREATION === 'true',
+    enableReceiptStorage: process.env.EXPO_PUBLIC_ENABLE_RECEIPT_STORAGE === 'true',
+    enableDebugMode: process.env.EXPO_PUBLIC_ENABLE_DEBUG_MODE === 'true',
   },
   api: {
     supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL || '',
